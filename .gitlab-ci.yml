@@ -1,0 +1,31 @@
+image: docker:latest
+ 
+variables:
+  APP_NAME: "integracion-conscte"
+  CORE: "quarkus"
+  STACK: "ms-orq-cte-ban"
+  NS: "integracion-conscte"
+  USE_SETTINGS_XML: "true"
+ 
+
+include:
+  - project: "banreservas1/proyectos-banreservas/devops/Templates"
+    ref: main
+    file:
+     - "/ci-pipeline/sonarqube/sonar-java.yml"
+     - "/ci-pipeline/quarkus/build-quarkus.yml"
+     - "/ci-pipeline/trivy/trivy-scan.yml"
+     - "/ci-pipeline/quarkus/push-image.yml"
+     - "/ci-pipeline/unit-test/unit-test-java.yml"
+     - "/ci-pipeline/argocd/argocd-deploy.yml"
+     - "/tools/SemVer/release_tag_quarkus.yml"
+ 
+stages:
+  - SemVer
+  - sonarqube
+  - build
+  - trivy
+  - push
+  - deploy_review
+  - argocd-deploy
+ 
