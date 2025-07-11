@@ -54,6 +54,8 @@ public class ConsultarDatosGeneralesClienteOrchestratorRoute extends RouteBuilde
                 .setProperty("errorMessage", simple("${exception.message}"))
                 .process(errorResponseProcessor)
                 .marshal().json(JsonLibrary.Jackson)
+                .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(400))
                 .end();
 
         onException(Exception.class)
@@ -63,23 +65,25 @@ public class ConsultarDatosGeneralesClienteOrchestratorRoute extends RouteBuilde
                 .setProperty("errorMessage", simple("${exception.message}"))
                 .process(errorResponseProcessor)
                 .marshal().json(JsonLibrary.Jackson)
+                .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(500))
                 .end();
 
-        // REST configuration
+        // REST configuration - SOLO UNA VEZ
         restConfiguration()
-                .component("platform-http")
-                .contextPath("consultar/datos/generales/cliente")
-                .bindingMode(RestBindingMode.json)
-                .apiProperty("api.title", "Consultar Datos Generales Cliente MICM API")
-                .apiProperty("api.version", "1.0.0")
-                .apiProperty("cors", "true")
-                .apiProperty("prettyPrint", "true");
+            .component("platform-http")
+            .contextPath("consultar/datos/generales/cliente")
+            .bindingMode(RestBindingMode.json)
+            .apiProperty("api.title", "Consultar Datos Generales Cliente MICM API")
+            .apiProperty("api.version", "1.0.0")
+            .apiProperty("cors", "true")
+            .apiProperty("prettyPrint", "true");
 
         // REST endpoint definition
         rest("/api/v1")
-                .post("/consultar-datos-generales-cliente")
-                .type(ConsultarDatosGeneralesClienteRequest.class)
-                .to("direct:orchestrate-consultar-datos-generales-cliente");
+            .post("/consultar-datos-generales-cliente")  // CON "/" al inicio
+            .type(ConsultarDatosGeneralesClienteRequest.class)
+            .to("direct:orchestrate-consultar-datos-generales-cliente");
 
         // Main orchestration route
         from("direct:orchestrate-consultar-datos-generales-cliente")
@@ -94,6 +98,8 @@ public class ConsultarDatosGeneralesClienteOrchestratorRoute extends RouteBuilde
                     .setProperty("errorMessage", constant(Constants.VALIDATION_MESSAGE_IDENTIFICATION_REQUIRED))
                     .process(errorResponseProcessor)
                     .marshal().json(JsonLibrary.Jackson)
+                    .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                    .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(400))
                     .stop()
                 .end()
                 
@@ -138,6 +144,8 @@ public class ConsultarDatosGeneralesClienteOrchestratorRoute extends RouteBuilde
                     .setProperty("errorMessage", constant(Constants.VALIDATION_MESSAGE_INVALID_IDENTIFICATION_TYPE))
                     .process(errorResponseProcessor)
                     .marshal().json(JsonLibrary.Jackson)
+                    .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                    .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(400))
                     .stop()
                 .end()
                 

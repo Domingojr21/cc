@@ -104,6 +104,8 @@ public class Service1JuridicalClientRoute extends RouteBuilder {
                     .unmarshal().json(JsonLibrary.Jackson)
                     .process(processService1ResponseProcessor)
                     .marshal().json(JsonLibrary.Jackson)
+                    .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+.setHeader(Exchange.HTTP_RESPONSE_CODE, constant(200))
                     .stop()
 
                 // 400 - Bad Request

@@ -105,22 +105,7 @@ public class Service2MasterCedulaRoute extends RouteBuilder {
                 .when(header(Exchange.HTTP_RESPONSE_CODE).isEqualTo(200))
                     .log(LoggingLevel.INFO, logger, "Master cedula service returned success - HTTP 200")
                     .process(processService2ResponseProcessor)
-                    
-                    // Check if JCE service should be called
-                    .choice()
-                    .when(exchangeProperty("callJCEService").isEqualTo(true))
-                        .log(LoggingLevel.INFO, logger, "Client not found in master data or force update requested - Calling JCE service")
-                        .to("direct:call-service3-jce")
-                    .when(exchangeProperty("clientFoundInMaster").isEqualTo(true))
-                        .log(LoggingLevel.INFO, logger, "Client found in master data - Preparing final response")
-                        .to("direct:process-master-response")
-                    .otherwise()
-                        .log(LoggingLevel.ERROR, logger, "Unexpected condition after master cedula service call")
-                        .setProperty("errorCode", constant(Constants.HTTP_INTERNAL_ERROR))
-                        .setProperty("errorMessage", constant("Unexpected condition in master cedula processing"))
-                        .process(errorResponseProcessor)
-                        .marshal().json(JsonLibrary.Jackson)
-                    .stop()
+                    .to("direct:process-service2-result")
 
                 // 400 - Bad Request
                 .when(header(Exchange.HTTP_RESPONSE_CODE).isEqualTo(400))
@@ -154,6 +139,43 @@ public class Service2MasterCedulaRoute extends RouteBuilder {
                     .log(LoggingLevel.ERROR, logger, "Master cedula service returned unexpected code - HTTP ${header.CamelHttpResponseCode}")
                     .setProperty("errorCode", constant(502))
                     .setProperty("errorMessage", simple("Unexpected error from master cedula service: HTTP ${header.CamelHttpResponseCode}"))
+                    .process(errorResponseProcessor)
+                    .marshal().json(JsonLibrary.Jackson)
+                    .stop()
+                .end();
+
+        // Separate route to handle service 2 processing results
+        from("direct:process-service2-result")
+                .routeId("process-service2-result")
+                .log(LoggingLevel.INFO, logger, "Processing service2 result")
+                
+                .choice()
+                .when(exchangeProperty("service2Error").isEqualTo(true))
+                    .log(LoggingLevel.ERROR, logger, "Error in service2 processing: ${exchangeProperty.service2ErrorMessage}")
+                    .setProperty("errorCode", exchangeProperty("service2ErrorCode"))
+                    .setProperty("errorMessage", exchangeProperty("service2ErrorMessage"))
+                    .process(errorResponseProcessor)
+                    .marshal().json(JsonLibrary.Jackson)
+                    .stop()
+                    
+                .when(exchangeProperty("callJCEService").isEqualTo(true))
+                    .log(LoggingLevel.INFO, logger, "Client not found in master data or force update requested - Calling JCE service")
+                    .to("direct:call-service3-jce")
+                    
+                .when(exchangeProperty("clientFoundInMaster").isEqualTo(true))
+                    .log(LoggingLevel.INFO, logger, "Client found in master data - Preparing final response")
+                    .to("direct:process-master-response")
+                    
+                .otherwise()
+                    .log(LoggingLevel.ERROR, logger, "Unexpected condition after master cedula service call")
+                    .process(exchange -> {
+                        logger.error("DEBUG - Exchange properties: callJCE={}, clientFound={}, service2Error={}", 
+                                    exchange.getProperty("callJCEService"), 
+                                    exchange.getProperty("clientFoundInMaster"), 
+                                    exchange.getProperty("service2Error"));
+                    })
+                    .setProperty("errorCode", constant(Constants.HTTP_INTERNAL_ERROR))
+                    .setProperty("errorMessage", constant("Unexpected condition in master cedula processing"))
                     .process(errorResponseProcessor)
                     .marshal().json(JsonLibrary.Jackson)
                     .stop()

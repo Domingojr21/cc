@@ -2,6 +2,8 @@ package com.banreservas.integration.routes;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+
+import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.dataformat.JsonLibrary;
@@ -46,7 +48,6 @@ public class ResponseProcessingRoute extends RouteBuilder {
     @Override
     public void configure() throws Exception {
 
-        // Exception handling
         onException(Exception.class)
                 .handled(true)
                 .log(LoggingLevel.ERROR, logger, "Error processing final response: ${exception.message}")
@@ -54,9 +55,10 @@ public class ResponseProcessingRoute extends RouteBuilder {
                 .setProperty("errorMessage", simple("Error processing final response: ${exception.message}"))
                 .process(errorResponseProcessor)
                 .marshal().json(JsonLibrary.Jackson)
+                .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(500))
                 .end();
 
-        // Process master cedula response
         from("direct:process-master-response")
                 .routeId("process-master-response")
                 .log(LoggingLevel.INFO, logger, "Processing master cedula response")
@@ -65,12 +67,28 @@ public class ResponseProcessingRoute extends RouteBuilder {
                     ConsultarDatosMaestroCeduladosResponse masterResponse = 
                         (ConsultarDatosMaestroCeduladosResponse) exchange.getProperty("service2Response");
                     
+                    logger.info("Retrieved masterResponse from exchange property: {}", masterResponse != null ? "NOT NULL" : "NULL");
+                    
                     if (masterResponse == null || masterResponse.body() == null || 
                         masterResponse.body().clients() == null || masterResponse.body().clients().isEmpty()) {
+                        logger.error("Invalid master cedula response - masterResponse: {}, body: {}, clients: {}", 
+                                   masterResponse != null ? "EXISTS" : "NULL",
+                                   masterResponse != null && masterResponse.body() != null ? "EXISTS" : "NULL",
+                                   masterResponse != null && masterResponse.body() != null && masterResponse.body().clients() != null ? 
+                                       masterResponse.body().clients().size() : "NULL");
                         throw new IllegalArgumentException("Invalid master cedula response");
                     }
                     
                     ClientMaestroResponseDto masterClient = masterResponse.body().clients().get(0);
+                    logger.info("Processing client: {}, identifications: {}", 
+                               masterClient.names(), 
+                               masterClient.identifications() != null ? masterClient.identifications().size() : "NULL");
+                    
+                    // Validar que existen identificaciones
+                    if (masterClient.identifications() == null || masterClient.identifications().isEmpty()) {
+                        logger.error("Client has no identifications");
+                        throw new IllegalArgumentException("Client has no identifications");
+                    }
                     
                     // Map to unified response format
                     IdentificationDto identification = new IdentificationDto(
@@ -81,7 +99,7 @@ public class ResponseProcessingRoute extends RouteBuilder {
                     // For cedula clients, use names as business name and empty trade name
                     ClientDto client = new ClientDto(
                         identification,
-                        masterClient.names(), // businessName
+                        masterClient.names() != null ? masterClient.names() : "", // businessName
                         "" // tradeName (empty for cedula)
                     );
                     
@@ -91,6 +109,10 @@ public class ResponseProcessingRoute extends RouteBuilder {
                     ConsultarDatosGeneralesClienteResponse finalResponse = 
                         new ConsultarDatosGeneralesClienteResponse(header, body);
                     
+                    logger.info("Final response created successfully - Header: {}, Body: {}", 
+                               finalResponse.header().responseCode(), 
+                               finalResponse.body() != null ? "EXISTS" : "NULL");
+                    
                     exchange.getIn().setBody(finalResponse);
                     
                     logger.info("Master cedula response processed successfully for ID: {}", 
@@ -98,9 +120,11 @@ public class ResponseProcessingRoute extends RouteBuilder {
                 })
                 
                 .marshal().json(JsonLibrary.Jackson)
+                .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(200))
+                .log(LoggingLevel.INFO, logger, "Final JSON response: ${body}")
                 .end();
 
-        // Process update service response
         from("direct:process-update-response")
                 .routeId("process-update-response")
                 .log(LoggingLevel.INFO, logger, "Processing update service response")
@@ -125,7 +149,7 @@ public class ResponseProcessingRoute extends RouteBuilder {
                     // For updated cedula clients, use name as business name
                     ClientDto client = new ClientDto(
                         identification,
-                        updateClient.name(), // businessName
+                        updateClient.name() != null ? updateClient.name() : "", // businessName
                         "" // tradeName (empty for cedula)
                     );
                     
@@ -142,6 +166,9 @@ public class ResponseProcessingRoute extends RouteBuilder {
                 })
                 
                 .marshal().json(JsonLibrary.Jackson)
+                .setHeader("Content-Type", constant("application/json; charset=UTF-8"))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(200))
+                .log(LoggingLevel.INFO, logger, "Final JSON response: ${body}")
                 .end();
     }
 }
