@@ -17,7 +17,6 @@ import com.banreservas.integration.processors.ValidateConsultarDatosGeneralesCli
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 
 import java.net.SocketTimeoutException;
 
@@ -126,22 +125,22 @@ public class ConsultarDatosGeneralesClienteRoute extends RouteBuilder {
                 // PASO 4: Ejecución condicional de servicios
                 
                 // LLAMADA 1: ConsultarDatosGeneralesClienteJuridico (RNC)
-                .choice()
-                    .when(exchangeProperty("callConsultarDatosJuridico").isEqualTo(true))
-                        .log(LoggingLevel.INFO, logger, "Ejecutando ConsultarDatosGeneralesClienteJuridico")
-                        .setBody(exchangeProperty("juridicoRequest"))
-                        .marshal().json(JsonLibrary.Jackson)
-                        .to("direct:consultar-datos-juridico-service")
-                        .choice()
-                            .when(exchangeProperty("hasBackendError").isEqualTo(true))
-                                .process(exchange -> {
-                                    String errorMsg = exchange.getProperty("backendErrorMessage", String.class);
-                                    throw new RuntimeException(errorMsg != null ? errorMsg : "Error en ConsultarDatosJuridico");
-                                })
-                            .otherwise()
-                                .setProperty("juridicoResponse", body())
-                                .log(LoggingLevel.INFO, logger, "ConsultarDatosJuridico completado exitosamente")
-                        .end()
+               .choice()
+                .when(exchangeProperty("callConsultarDatosJuridico").isEqualTo(true))
+                    .log(LoggingLevel.INFO, logger, "Ejecutando ConsultarDatosGeneralesClienteJuridico")
+                    .setBody(exchangeProperty("juridicoRequest"))  // ← CAMBIO: usar juridicoRequest en lugar de jceRequest
+                    .marshal().json(JsonLibrary.Jackson)
+                    .to("direct:consultar-datos-juridico-service")
+                    .choice()
+                        .when(exchangeProperty("hasBackendError").isEqualTo(true))
+                            .process(exchange -> {
+                                String errorMsg = exchange.getProperty("backendErrorMessage", String.class);
+                                throw new RuntimeException(errorMsg != null ? errorMsg : "Error en ConsultarDatosJuridico");
+                            })
+                        .otherwise()
+                            .setProperty("juridicoResponse", body())
+                            .log(LoggingLevel.INFO, logger, "ConsultarDatosJuridico completado exitosamente")
+                    .end()
                 .end()
 
                 // LLAMADA 2: ConsultarDatosMaestroCedulados (Cédula sin forzar)

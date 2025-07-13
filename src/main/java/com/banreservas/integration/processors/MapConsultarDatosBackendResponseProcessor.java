@@ -5,17 +5,16 @@ import org.apache.camel.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.banreservas.integration.model.inbound.ConsultarDatosGeneralesClienteInboundResponse;
+import com.banreservas.integration.model.inbound.ConsultarDatosGeneralesClienteInboundResponse.Identificacion;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
- * Processor para mapear las respuestas backend al formato MICM.
+ * Processor para mapear las respuestas backend al formato MICM usando type safety.
  * 
  * @author Jenrry Monegro - c-jmonegro@banreservas.com
  * @since 04/07/2025
@@ -30,9 +29,9 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
 
     @Override
     public void process(Exchange exchange) throws Exception {
-        log.info("Mapeando respuestas backend a formato MICM");
+        log.info("Mapeando respuestas backend a formato MICM con type safety");
 
-        ObjectNode micmResponse = mapper.createObjectNode();
+        ConsultarDatosGeneralesClienteInboundResponse response = null;
         
         // Determinar qué servicio se ejecutó y mapear su respuesta
         try {
@@ -46,88 +45,93 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
             log.info("*** DEBUG: - callConsultarDatosJCE: {}, jceResponse: {}", 
                      exchange.getProperty("callConsultarDatosJCE"), 
                      exchange.getProperty("jceResponse") != null);
-            log.info("*** DEBUG: - callActualizarDatosMaestro: {}, actualizarResponse: {}", 
-                     exchange.getProperty("callActualizarDatosMaestro"), 
-                     exchange.getProperty("actualizarResponse") != null);
             
             if (Boolean.TRUE.equals(exchange.getProperty("callConsultarDatosJuridico")) && 
                 exchange.getProperty("juridicoResponse") != null) {
                 
                 log.info("*** DEBUG: Mapeando respuesta de ConsultarDatosGeneralesClienteJuridico");
-                mapConsultarDatosJuridicoResponse(micmResponse, exchange.getProperty("juridicoResponse", String.class));
+                response = mapConsultarDatosJuridicoResponse(exchange.getProperty("juridicoResponse", String.class));
                 
             } else if (Boolean.TRUE.equals(exchange.getProperty("callConsultarDatosMaestro")) && 
                        exchange.getProperty("maestroResponse") != null) {
                 
                 log.info("*** DEBUG: Mapeando respuesta de ConsultarDatosMaestroCedulados");
-                mapConsultarDatosMaestroResponse(micmResponse, exchange.getProperty("maestroResponse", String.class));
+                response = mapConsultarDatosMaestroResponse(exchange.getProperty("maestroResponse", String.class));
                 
             } else if (Boolean.TRUE.equals(exchange.getProperty("callConsultarDatosJCE")) && 
                        exchange.getProperty("jceResponse") != null) {
                 
                 log.info("*** DEBUG: Mapeando respuesta de ConsultarDatosJCE");
-                mapConsultarDatosJCEResponse(micmResponse, exchange.getProperty("jceResponse", String.class));
+                response = mapConsultarDatosJCEResponse(exchange.getProperty("jceResponse", String.class));
                 
             } else {
                 // No se ejecutó ningún servicio o no hay respuesta
                 log.warn("No se ejecutó ningún servicio o no hay respuesta disponible");
-                createErrorResponse(micmResponse, "No se pudo procesar la consulta según las condiciones evaluadas");
-                exchange.getIn().setBody(micmResponse);
-                return;
+                response = createErrorResponse("No se pudo procesar la consulta según las condiciones evaluadas");
             }
             
-            log.info("Respuesta MICM mapeada exitosamente");
+            // Convertir el objeto response directamente a JSON sin doble serialización
+            exchange.getIn().setBody(response);
+            
+            log.info("Respuesta MICM mapeada exitosamente con type safety");
             
         } catch (Exception e) {
             log.error("Error mapeando respuesta backend", e);
-            createErrorResponse(micmResponse, "Error procesando respuesta: " + e.getMessage());
+            response = createErrorResponse("Error procesando respuesta: " + e.getMessage());
+            exchange.getIn().setBody(response);
         }
-        
-        exchange.getIn().setBody(micmResponse);
     }
     
     /**
      * Mapea respuesta de ConsultarDatosGeneralesClienteJuridico.
      */
-    private void mapConsultarDatosJuridicoResponse(ObjectNode micmResponse, String jsonResponse) throws Exception {
+    private ConsultarDatosGeneralesClienteInboundResponse mapConsultarDatosJuridicoResponse(String jsonResponse) throws Exception {
         JsonNode response = mapper.readTree(jsonResponse);
         JsonNode body = response.get("body");
         
         if (body != null && body.has("client")) {
             JsonNode client = body.get("client");
             
-            // Mapear identificación
+            // Crear identificación
+            Identificacion identificacion = null;
             if (client.has("identification")) {
                 JsonNode identification = client.get("identification");
-                micmResponse.put("NumeroIdentificacion", identification.path("number").asText());
-                micmResponse.put("TipoIdentificacion", identification.path("type").asText());
+                identificacion = new Identificacion(
+                    identification.path("number").asText(),
+                    identification.path("type").asText()
+                );
+            } else {
+                identificacion = new Identificacion("", "");
             }
             
             // Mapear datos del cliente jurídico
-            micmResponse.put("Nombres", client.path("businessName").asText());
-            micmResponse.put("PrimerApellido", ""); // No aplica para personas jurídicas
-            micmResponse.put("SegundoApellido", ""); // No aplica para personas jurídicas
-            micmResponse.put("FechaNacimiento", "0001-01-01T00:00:00"); // No aplica
-            micmResponse.put("LugarNacimiento", ""); // No aplica
-            micmResponse.put("CedulaVieja", ""); // No aplica
-            micmResponse.put("Sexo", ""); // No aplica
-            micmResponse.put("EstadoCivil", ""); // No aplica
-            micmResponse.put("Categoria", ""); // No aplica
-            micmResponse.put("CausaInhabilidad", ""); // No aplica
-            micmResponse.put("CodigoCausaCancelacion", ""); // No aplica
-            micmResponse.put("Estatus", ""); // No aplica
-            micmResponse.put("FechaCancelacion", "0001-01-01T00:00:00"); // No aplica
-            micmResponse.put("FotoUrl", ""); // No aplica
-            micmResponse.put("FotoBinario", ""); // No aplica
-            
-            log.debug("Cliente jurídico mapeado: {}", client.path("businessName").asText());
+            return new ConsultarDatosGeneralesClienteInboundResponse(
+                identificacion,
+                client.path("businessName").asText(),
+                "", // No aplica para personas jurídicas
+                "", // No aplica para personas jurídicas
+                "0001-01-01T00:00:00", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "", // No aplica
+                "0001-01-01T00:00:00", // No aplica
+                "", // No aplica
+                "" // No aplica
+            );
         }
+        
+        return createErrorResponse("No se encontraron datos del cliente jurídico");
     }
     
     /**
      * Mapea respuesta de ConsultarDatosMaestroCedulados.
      */
-    private void mapConsultarDatosMaestroResponse(ObjectNode micmResponse, String jsonResponse) throws Exception {
+    private ConsultarDatosGeneralesClienteInboundResponse mapConsultarDatosMaestroResponse(String jsonResponse) throws Exception {
         JsonNode response = mapper.readTree(jsonResponse);
         JsonNode body = response.get("body");
         
@@ -136,45 +140,50 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
             
             JsonNode client = body.get("clients").get(0); // Primer cliente
             
-            // Mapear identificación
+            // Crear identificación
+            Identificacion identificacion = null;
             if (client.has("identifications") && client.get("identifications").isArray() && 
                 client.get("identifications").size() > 0) {
                 JsonNode identification = client.get("identifications").get(0);
-                micmResponse.put("NumeroIdentificacion", identification.path("number").asText());
-                micmResponse.put("TipoIdentificacion", identification.path("type").asText());
+                identificacion = new Identificacion(
+                    identification.path("number").asText(),
+                    identification.path("type").asText()
+                );
+            } else {
+                identificacion = new Identificacion("", "");
             }
             
             // Mapear datos del cliente
-            micmResponse.put("Nombres", client.path("names").asText());
-            micmResponse.put("PrimerApellido", client.path("firstName").asText());
-            micmResponse.put("SegundoApellido", client.path("middleLastName").asText());
-            
             String birthDate = client.path("dateOfBirth").asText();
-            micmResponse.put("FechaNacimiento", birthDate.isEmpty() ? "0001-01-01T00:00:00" : birthDate);
-            
-            micmResponse.put("LugarNacimiento", client.path("placeOfBirth").asText());
-            micmResponse.put("CedulaVieja", ""); // No disponible en este servicio
-            micmResponse.put("Sexo", client.path("sex").asText());
-            micmResponse.put("EstadoCivil", client.path("maritalStatus").asText());
-            micmResponse.put("Categoria", client.path("category").asText());
-            micmResponse.put("CausaInhabilidad", client.path("cancellationCause").asText());
-            micmResponse.put("CodigoCausaCancelacion", client.path("cancellationCauseID").asText());
-            micmResponse.put("Estatus", client.path("stateID").asText());
-            
             String cancellationDate = client.path("cancellationDate").asText();
-            micmResponse.put("FechaCancelacion", cancellationDate.isEmpty() ? "0001-01-01T00:00:00" : cancellationDate);
             
-            micmResponse.put("FotoUrl", ""); // No disponible en este servicio
-            micmResponse.put("FotoBinario", client.path("photo").asText(""));
-            
-            log.debug("Cliente maestro mapeado: {}", client.path("names").asText());
+            return new ConsultarDatosGeneralesClienteInboundResponse(
+                identificacion,
+                client.path("names").asText(),
+                client.path("firstName").asText(),
+                client.path("middleLastName").asText(),
+                birthDate.isEmpty() ? "0001-01-01T00:00:00" : birthDate,
+                client.path("placeOfBirth").asText(),
+                "", // No disponible en este servicio
+                client.path("sex").asText(),
+                client.path("maritalStatus").asText(),
+                client.path("category").asText(),
+                client.path("cancellationCause").asText(),
+                client.path("cancellationCauseID").asText(),
+                client.path("stateID").asText(),
+                cancellationDate.isEmpty() ? "0001-01-01T00:00:00" : cancellationDate,
+                "", // No disponible en este servicio
+                client.path("photo").asText("")
+            );
         }
+        
+        return createErrorResponse("No se encontraron datos del cliente en maestro");
     }
     
     /**
      * Mapea respuesta de ConsultarDatosJCE.
      */
-    private void mapConsultarDatosJCEResponse(ObjectNode micmResponse, String jsonResponse) throws Exception {
+    private ConsultarDatosGeneralesClienteInboundResponse mapConsultarDatosJCEResponse(String jsonResponse) throws Exception {
         JsonNode response = mapper.readTree(jsonResponse);
         JsonNode body = response.get("body");
         
@@ -183,64 +192,70 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
             
             JsonNode client = body.get("clients").get(0); // Primer cliente
             
-            // Mapear identificación
+            // Crear identificación
+            Identificacion identificacion = null;
             if (client.has("identifications") && client.get("identifications").isArray() && 
                 client.get("identifications").size() > 0) {
                 JsonNode identification = client.get("identifications").get(0);
-                micmResponse.put("NumeroIdentificacion", identification.path("number").asText());
-                micmResponse.put("TipoIdentificacion", identification.path("type").asText());
+                identificacion = new Identificacion(
+                    identification.path("number").asText(),
+                    identification.path("type").asText()
+                );
+            } else {
+                identificacion = new Identificacion("", "");
             }
             
             // Mapear datos del cliente JCE
-            micmResponse.put("Nombres", client.path("names").asText());
-            micmResponse.put("PrimerApellido", client.path("firstSurname").asText());
-            micmResponse.put("SegundoApellido", client.path("secondSurname").asText());
-            
             String birthDate = client.path("birthDate").asText();
-            micmResponse.put("FechaNacimiento", birthDate.isEmpty() ? "0001-01-01T00:00:00" : birthDate);
-            
-            micmResponse.put("LugarNacimiento", client.path("birthPlace").asText());
-            micmResponse.put("CedulaVieja", ""); // No disponible en JCE
-            micmResponse.put("Sexo", client.path("gender").asText());
-            micmResponse.put("EstadoCivil", client.path("maritalStatus").asText());
-            micmResponse.put("Categoria", client.path("category").asText());
-            micmResponse.put("CausaInhabilidad", client.path("cancelReason").asText());
-            micmResponse.put("CodigoCausaCancelacion", client.path("cancelReasonId").asText());
-            micmResponse.put("Estatus", client.path("stateId").asText());
-            
             String cancelDate = client.path("cancelDate").asText();
-            micmResponse.put("FechaCancelacion", cancelDate.isEmpty() ? "0001-01-01T00:00:00" : cancelDate);
             
-            micmResponse.put("FotoUrl", ""); // No disponible en JCE
-            micmResponse.put("FotoBinario", ""); // No disponible en JCE
-            
-            log.debug("Cliente JCE mapeado: {}", client.path("names").asText());
+            return new ConsultarDatosGeneralesClienteInboundResponse(
+                identificacion,
+                client.path("names").asText(),
+                client.path("firstSurname").asText(),
+                client.path("secondSurname").asText(),
+                birthDate.isEmpty() ? "0001-01-01T00:00:00" : birthDate,
+                client.path("birthPlace").asText(),
+                "", // No disponible en JCE
+                client.path("gender").asText(),
+                client.path("maritalStatus").asText(),
+                client.path("category").asText(),
+                client.path("cancelReason").asText(),
+                client.path("cancelReasonId").asText(),
+                client.path("stateId").asText(),
+                cancelDate.isEmpty() ? "0001-01-01T00:00:00" : cancelDate,
+                "", // No disponible en JCE
+                "" // No disponible en JCE
+            );
         }
+        
+        return createErrorResponse("No se encontraron datos del cliente en JCE");
     }
     
     /**
      * Crea una respuesta de error en formato MICM.
      */
-    private void createErrorResponse(ObjectNode micmResponse, String errorMessage) {
-        micmResponse.put("NumeroIdentificacion", "");
-        micmResponse.put("TipoIdentificacion", "");
-        micmResponse.put("Nombres", "");
-        micmResponse.put("PrimerApellido", "");
-        micmResponse.put("SegundoApellido", "");
-        micmResponse.put("FechaNacimiento", "0001-01-01T00:00:00");
-        micmResponse.put("LugarNacimiento", "");
-        micmResponse.put("CedulaVieja", "");
-        micmResponse.put("Sexo", "");
-        micmResponse.put("EstadoCivil", "");
-        micmResponse.put("Categoria", "");
-        micmResponse.put("CausaInhabilidad", "");
-        micmResponse.put("CodigoCausaCancelacion", "");
-        micmResponse.put("Estatus", "");
-        micmResponse.put("FechaCancelacion", "0001-01-01T00:00:00");
-        micmResponse.put("FotoUrl", "");
-        micmResponse.put("FotoBinario", "");
-        micmResponse.put("Error", errorMessage);
+    private ConsultarDatosGeneralesClienteInboundResponse createErrorResponse(String errorMessage) {
+        Identificacion identificacion = new Identificacion("", "");
         
-        log.warn("Respuesta de error creada: {}", errorMessage);
+        // Nota: El record no tiene campo "error", se manejará en el ErrorResponseProcessor
+        return new ConsultarDatosGeneralesClienteInboundResponse(
+            identificacion,
+            "",
+            "",
+            "",
+            "0001-01-01T00:00:00",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "0001-01-01T00:00:00",
+            "",
+            ""
+        );
     }
 }
