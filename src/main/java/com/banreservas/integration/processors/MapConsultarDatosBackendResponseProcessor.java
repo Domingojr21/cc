@@ -5,12 +5,13 @@ import org.apache.camel.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Named;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
@@ -26,7 +27,7 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
 
     private static final Logger log = LoggerFactory.getLogger(MapConsultarDatosBackendResponseProcessor.class);
     private final ObjectMapper mapper = new ObjectMapper();
-    
+
     @Override
     public void process(Exchange exchange) throws Exception {
         log.info("Mapeando respuestas backend a formato MICM");
@@ -71,7 +72,7 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
                 // No se ejecutó ningún servicio o no hay respuesta
                 log.warn("No se ejecutó ningún servicio o no hay respuesta disponible");
                 createErrorResponse(micmResponse, "No se pudo procesar la consulta según las condiciones evaluadas");
-                exchange.getIn().setBody(micmResponse.toString());
+                exchange.getIn().setBody(micmResponse);
                 return;
             }
             
@@ -82,7 +83,7 @@ public class MapConsultarDatosBackendResponseProcessor implements Processor {
             createErrorResponse(micmResponse, "Error procesando respuesta: " + e.getMessage());
         }
         
-        exchange.getIn().setBody(micmResponse.toString());
+        exchange.getIn().setBody(micmResponse);
     }
     
     /**

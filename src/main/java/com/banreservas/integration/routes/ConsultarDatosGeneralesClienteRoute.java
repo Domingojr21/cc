@@ -9,6 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.banreservas.integration.exceptions.ValidationException;
+import com.banreservas.integration.processors.ConsultarDatosOrchestrationDecisionProcessor;
+import com.banreservas.integration.processors.ErrorResponseProcessorMICM;
+import com.banreservas.integration.processors.GenerateConsultarDatosBackendRequestsProcessor;
+import com.banreservas.integration.processors.MapConsultarDatosBackendResponseProcessor;
+import com.banreservas.integration.processors.ValidateConsultarDatosGeneralesClienteRequestProcessor;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -29,20 +34,20 @@ public class ConsultarDatosGeneralesClienteRoute extends RouteBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsultarDatosGeneralesClienteRoute.class);
 
-    @Inject
-    Processor validateRequestProcessor;
+   @Inject
+    ValidateConsultarDatosGeneralesClienteRequestProcessor validateRequestProcessor;
 
     @Inject
-    Processor orchestrationDecisionProcessor;
+    ConsultarDatosOrchestrationDecisionProcessor orchestrationDecisionProcessor;
 
     @Inject
-    Processor generateBackendRequestsProcessor;
+    GenerateConsultarDatosBackendRequestsProcessor generateBackendRequestsProcessor;
 
     @Inject
-    Processor mapBackendResponseProcessor;
+    MapConsultarDatosBackendResponseProcessor mapBackendResponseProcessor;
 
     @Inject
-    Processor errorResponseProcessor;
+    ErrorResponseProcessorMICM errorResponseProcessor;
 
     @Override
     public void configure() throws Exception {
@@ -102,7 +107,7 @@ public class ConsultarDatosGeneralesClienteRoute extends RouteBuilder {
         // ========================================
         // RUTA PRINCIPAL MICM REST
         // ========================================
-        from("servlet:consultar-datos-generales-cliente?httpMethodRestrict=POST")
+        from("platform-http:/consultar/datos/generales/cliente/api/v1/consultar-datos-generales-cliente?httpMethodRestrict=POST")
                 .routeId("consultar-datos-generales-cliente-micm-route")
                 .log(LoggingLevel.INFO, logger, "Solicitud HTTP ConsultarDatosGeneralesCliente MICM recibida")
                 
@@ -248,6 +253,7 @@ public class ConsultarDatosGeneralesClienteRoute extends RouteBuilder {
                                             client.path("cancelDate").asText(),
                                             client.path("nationCode").asText(),
                                             client.path("nationality").asText(),
+                                            client.path("photoBinary").asText(""),
                                             client.path("expirationDate").asText()
                                         );
                                     

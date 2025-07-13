@@ -6,6 +6,9 @@ import org.apache.camel.builder.RouteBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.enterprise.context.ApplicationScoped;
 
 /**
@@ -58,15 +61,37 @@ public class RestProducerActualizarDatosMaestro extends RouteBuilder {
                             String responseBody = exchange.getIn().getBody(String.class);
                             Integer httpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
                             String errorMessage = "Error en el servicio backend actualizar";
+                            String serviceName = "ActualizarDatosMaestroCedulados";
                             
                             if (responseBody != null && responseBody.contains("responseMessage")) {
-                                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                                com.fasterxml.jackson.databind.JsonNode jsonResponse = mapper.readTree(responseBody);
-                                errorMessage = jsonResponse.path("header").path("responseMessage").asText(errorMessage);
-                            }
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonResponse = mapper.readTree(responseBody);
+            
+            String headerMessage = jsonResponse.path("header").path("responseMessage").asText();
+            
+            // Extraer detalles del body si existen
+            StringBuilder detailedMessage = new StringBuilder();
+            detailedMessage.append(serviceName).append(" - ").append(headerMessage);
+            
+            JsonNode bodyNode = jsonResponse.path("body");
+            if (bodyNode.isObject()) {
+                bodyNode.fields().forEachRemaining(entry -> {
+                    String fieldName = entry.getKey();
+                    JsonNode fieldErrors = entry.getValue();
+                    if (fieldErrors.isArray()) {
+                        detailedMessage.append(". ").append(fieldName).append(": ");
+                        for (JsonNode error : fieldErrors) {
+                            detailedMessage.append(error.asText()).append(" ");
+                        }
+                    }
+                });
+            }
+            
+            errorMessage = detailedMessage.toString().trim();
+        }
                             
                             exchange.setProperty("backendErrorMessage", errorMessage);
-                            exchange.setProperty("backendErrorCode", httpCode.toString());
+                            exchange.setProperty("backendErrorCode", httpCode);
                             exchange.setProperty("hasBackendError", true);
                             exchange.setProperty("CamelExceptionCaught", new RuntimeException(errorMessage));
                             
@@ -74,7 +99,7 @@ public class RestProducerActualizarDatosMaestro extends RouteBuilder {
                             
                         } catch (Exception e) {
                             Integer httpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
-                            exchange.setProperty("backendErrorCode", httpCode != null ? httpCode.toString() : "500");
+                            exchange.setProperty("backendErrorCode", httpCode != null ? httpCode : "500");
                             exchange.setProperty("backendErrorMessage", "Error procesando respuesta del backend actualizar");
                             exchange.setProperty("hasBackendError", true);
                             exchange.setProperty("CamelExceptionCaught", new RuntimeException("Error procesando respuesta del backend actualizar"));

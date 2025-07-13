@@ -2,6 +2,7 @@ package com.banreservas.integration.processors;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +26,9 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 public class GenerateConsultarDatosBackendRequestsProcessor implements Processor {
 
     private static final Logger log = LoggerFactory.getLogger(GenerateConsultarDatosBackendRequestsProcessor.class);
-    
+     @ConfigProperty(name = "consultar.datos.jcedp.include.binary.photo")
+    Boolean jceIncludeBinaryPhoto;  
+
     @Override
     public void process(Exchange exchange) throws Exception {
         log.info("Generando requests para servicios backend ConsultarDatosGeneralesCliente");
@@ -34,15 +37,17 @@ public class GenerateConsultarDatosBackendRequestsProcessor implements Processor
         String tipoIdentificacion = exchange.getProperty("tipoIdentificacionRq", String.class);
         String incluirFotoBinaria = exchange.getProperty("incluirFotoBinariaRq", String.class);
         
+        
         // Convertir incluirFotoBinaria a Boolean
         Boolean includeBinaryPhoto = "TRUE".equals(incluirFotoBinaria);
         
         // Generar request para ConsultarDatosGeneralesClienteJuridico
         if (Boolean.TRUE.equals(exchange.getProperty("callConsultarDatosJuridico"))) {
-            ConsultarDatosGeneralesClienteJuridicoRequest juridicoRequest = 
-                ConsultarDatosGeneralesClienteJuridicoRequest.fromIdentification(identificacion, tipoIdentificacion);
-            exchange.setProperty("juridicoRequest", juridicoRequest);
-            log.debug("Request generado para ConsultarDatosGeneralesClienteJuridico");
+            ConsultarDatosJCERequest jceRequest = 
+                ConsultarDatosJCERequest.fromSingleIdentification(
+                    identificacion, tipoIdentificacion, jceIncludeBinaryPhoto);  // ← USAR PROPIEDAD
+            exchange.setProperty("jceRequest", jceRequest);
+            log.debug("Request generado para ConsultarDatosJCE con includeBinaryPhoto: {}", jceIncludeBinaryPhoto);
         }
         
         // Generar request para ConsultarDatosMaestroCedulados
@@ -56,10 +61,11 @@ public class GenerateConsultarDatosBackendRequestsProcessor implements Processor
         
         // Generar request para ConsultarDatosJCE
         if (Boolean.TRUE.equals(exchange.getProperty("callConsultarDatosJCE"))) {
-            ConsultarDatosJCERequest jceRequest = 
-                ConsultarDatosJCERequest.fromSingleIdentification(identificacion, tipoIdentificacion);
+          ConsultarDatosJCERequest jceRequest = 
+                ConsultarDatosJCERequest.fromSingleIdentification(
+                    identificacion, tipoIdentificacion, jceIncludeBinaryPhoto);  
             exchange.setProperty("jceRequest", jceRequest);
-            log.debug("Request generado para ConsultarDatosJCE");
+            log.debug("Request generado para ConsultarDatosJCE con includeBinaryPhoto: {}", jceIncludeBinaryPhoto);
         }
         
         // NOTA: ActualizarDatosMaestroCeduladosRequest NO se genera aquí

@@ -66,7 +66,7 @@ public class RestProducerConsultarDatosJuridico extends RouteBuilder {
                             }
                             
                             exchange.setProperty("backendErrorMessage", errorMessage);
-                            exchange.setProperty("backendErrorCode", httpCode.toString());
+                            exchange.setProperty("backendErrorCode", httpCode);
                             exchange.setProperty("hasBackendError", true);
                             exchange.setProperty("CamelExceptionCaught", new RuntimeException(errorMessage));
                             
@@ -74,7 +74,7 @@ public class RestProducerConsultarDatosJuridico extends RouteBuilder {
                             
                         } catch (Exception e) {
                             Integer httpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
-                            exchange.setProperty("backendErrorCode", httpCode != null ? httpCode.toString() : "500");
+                            exchange.setProperty("backendErrorCode", httpCode != null ? httpCode : "500");
                             exchange.setProperty("backendErrorMessage", "Error procesando respuesta del backend juridico");
                             exchange.setProperty("hasBackendError", true);
                             exchange.setProperty("CamelExceptionCaught", new RuntimeException("Error procesando respuesta del backend juridico"));

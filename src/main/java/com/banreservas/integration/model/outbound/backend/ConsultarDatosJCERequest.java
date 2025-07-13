@@ -13,7 +13,9 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
  */
 @RegisterForReflection
 public record ConsultarDatosJCERequest(
-        Clients clients) implements Serializable {
+        Clients clients,
+        Boolean includeBinaryPhoto  
+) implements Serializable {
 
     @RegisterForReflection
     public record Clients(
@@ -40,11 +42,12 @@ public record ConsultarDatosJCERequest(
      */
     public static ConsultarDatosJCERequest fromSingleIdentification(
             String identificationNumber, 
-            String identificationType) {
+            String identificationType,
+            Boolean includeBinaryPhoto) {  // ← AGREGADO PARÁMETRO
         
         Identification identification = new Identification(identificationNumber, identificationType);
         Client client = new Client(List.of(identification));
         Clients clients = new Clients(List.of(client));
-        return new ConsultarDatosJCERequest(clients);
+        return new ConsultarDatosJCERequest(clients, includeBinaryPhoto); 
     }
 }

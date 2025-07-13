@@ -90,7 +90,7 @@ public class ErrorResponseProcessorMICM implements Processor {
         errorResponse.put("Error", mensaje);
         errorResponse.put("ErrorCode", backendHttpCode);
 
-        exchange.getIn().setBody(errorResponse.toString());
+        exchange.getIn().setBody(errorResponse);
 
         // *** CONFIGURAR CÓDIGO HTTP DE RESPUESTA ***
         

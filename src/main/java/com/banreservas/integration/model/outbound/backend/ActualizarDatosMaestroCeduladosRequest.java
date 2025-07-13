@@ -69,6 +69,7 @@ public record ActualizarDatosMaestroCeduladosRequest(
             String cancelDate,
             String nationCode,
             String nationality,
+            String binaryPhoto,  
             String expirationDate) {
         
         Identification identification = new Identification(identificationNumber, identificationType);
@@ -90,7 +91,7 @@ public record ActualizarDatosMaestroCeduladosRequest(
             cancelDate,
             nationCode,
             nationality,
-            null, // binaryPhoto
+            binaryPhoto, // binaryPhoto
             expirationDate
         );
         return new ActualizarDatosMaestroCeduladosRequest(List.of(client));
