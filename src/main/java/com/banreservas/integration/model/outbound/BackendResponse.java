@@ -1,23 +1,26 @@
 package com.banreservas.integration.model.outbound;
 
 import java.io.Serializable;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
  * Response genérico para respuestas de servicios backend.
  * 
- * @author Jenrry Monegro - c-jmonegro@banreservas.com
- * @since 04/07/2025
+ * @author Domingo Ruiz - c-djruiz@banreservas.com
+ * @since 09/07/2025
  * @version 1.0.0
  */
 @RegisterForReflection
 public record BackendResponse(
-        Header header,
-        Object body) implements Serializable {
+       @JsonProperty("header") Header header,
+        @JsonProperty("body") Object body) implements Serializable {
 
     @RegisterForReflection
     public record Header(
-            int responseCode,
-            String responseMessage) implements Serializable {
+            @JsonProperty("responseCode") int responseCode,
+            @JsonProperty("responseMessage") String responseMessage) implements Serializable {
     }
 }

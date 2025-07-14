@@ -5,7 +5,7 @@ import java.util.List;
 
 public class IdentificationTypeUtil {
 
-    private static final List<String> VALID_VALUES = Arrays.asList("RNC", "Cedula", "Pasaporte");
+    private static final List<String> VALID_VALUES = Arrays.asList("RNC", "Cedula");
 
     public static String normalize(String rawValue) {
         if (rawValue == null || rawValue.isEmpty()) {

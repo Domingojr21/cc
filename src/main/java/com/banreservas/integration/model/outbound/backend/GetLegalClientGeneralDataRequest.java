@@ -1,28 +1,29 @@
 package com.banreservas.integration.model.outbound.backend;
 
 import java.io.Serializable;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
  * Request DTO para el servicio ConsultarDatosGeneralesClienteJuridico.
  * 
- * @author Jenrry Monegro - c-jmonegro@banreservas.com
- * @since 04/07/2025
+ * @author Domingo Ruiz - c-djruiz@banreservas.com
+ * @since 09/07/2025
  * @version 1.0.0
  */
 @RegisterForReflection
-public record ConsultarDatosGeneralesClienteJuridicoRequest(
-        Client client) implements Serializable {
+public record GetLegalClientGeneralDataRequest(
+        @JsonProperty("client") Client client) implements Serializable {
 
     @RegisterForReflection
     public record Client(
-            Identification identification) implements Serializable {
+            @JsonProperty("identification") Identification identification) implements Serializable {
     }
 
     @RegisterForReflection
     public record Identification(
-            String number,
-            String type) implements Serializable {
+            @JsonProperty("number") String number,
+            @JsonProperty("type") String type) implements Serializable {
     }
 
     /**
@@ -32,12 +33,12 @@ public record ConsultarDatosGeneralesClienteJuridicoRequest(
      * @param identificationType tipo de identificación
      * @return nueva instancia del request
      */
-    public static ConsultarDatosGeneralesClienteJuridicoRequest fromIdentification(
-            String identificationNumber, 
-            String identificationType) {
+    public static GetLegalClientGeneralDataRequest fromIdentification(
+            @JsonProperty("identificationNumber") String identificationNumber, 
+            @JsonProperty("identificationType") String identificationType) {
         
         Identification identification = new Identification(identificationNumber, identificationType);
         Client client = new Client(identification);
-        return new ConsultarDatosGeneralesClienteJuridicoRequest(client);
+        return new GetLegalClientGeneralDataRequest(client);
     }
 }

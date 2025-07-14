@@ -6,7 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.banreservas.integration.exceptions.ValidationException;
-import com.banreservas.integration.model.inbound.ConsultarDatosGeneralesClienteInboundRequest;
+import com.banreservas.integration.model.inbound.GetClientGeneralDataInboundRequest;
+import com.banreservas.integration.util.BooleanValueUtil;
+import com.banreservas.integration.util.Constants;
+import com.banreservas.integration.util.IdentificationTypeUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -16,71 +19,70 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
  * Processor para validar requests de ConsultarDatosGeneralesCliente MICM.
  * Ahora usa type safety con la clase inbound.
  * 
- * @author Jenrry Monegro - c-jmonegro@banreservas.com
- * @since 04/07/2025
+ * @author Domingo Ruiz - c-djruiz@banreservas.com
+ * @since 10/07/2025
  * @version 1.0.0
  */
 @ApplicationScoped
 @RegisterForReflection
-public class ValidateConsultarDatosGeneralesClienteRequestProcessor implements Processor {
+public class ValidateGetClientGeneralDataRequestProcessor implements Processor {
 
-    private static final Logger log = LoggerFactory.getLogger(ValidateConsultarDatosGeneralesClienteRequestProcessor.class);
+    private static final Logger log = LoggerFactory.getLogger(ValidateGetClientGeneralDataRequestProcessor.class);
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void process(Exchange exchange) throws Exception {
-        log.info("Validando request ConsultarDatosGeneralesCliente MICM con type safety");
-
+        
         String requestBody = exchange.getIn().getBody(String.class);
         
         if (requestBody == null || requestBody.trim().isEmpty()) {
             throw new ValidationException("Request body no puede ser nulo o vacío");
         }
 
-        // Deserializar a objeto type-safe
-        ConsultarDatosGeneralesClienteInboundRequest request;
+        // Deserializar a objeto 
+        GetClientGeneralDataInboundRequest request;
         try {
-            request = mapper.readValue(requestBody, ConsultarDatosGeneralesClienteInboundRequest.class);
+            request = mapper.readValue(requestBody, GetClientGeneralDataInboundRequest.class);
         } catch (Exception e) {
             throw new ValidationException("Formato JSON inválido: " + e.getMessage());
         }
 
-        // Validar campos requeridos usando el objeto type-safe
-        String identificacion = request.identificacion();
+        // Validar campos requeridos 
+        String identificacion = request.indentificationNumber();
         if (identificacion == null || identificacion.trim().isEmpty()) {
             throw new ValidationException("Identificación es requerida");
         }
 
-        String tipoIdentificacion = request.tipoIdentificacion();
+        String tipoIdentificacion = request.identificationType();
         if (tipoIdentificacion == null || tipoIdentificacion.trim().isEmpty()) {
             throw new ValidationException("Tipo de identificación es requerido");
         }
 
         // *** NORMALIZAR TIPO DE IDENTIFICACIÓN (case-insensitive) ***
-        tipoIdentificacion = normalizeTipoIdentificacion(tipoIdentificacion);
-        if (tipoIdentificacion == null) {
-            throw new ValidationException("Tipo de identificación debe ser: Cedula, RNC");
+        String tipoIdentificacionNormalizado = IdentificationTypeUtil.normalize(tipoIdentificacion);
+        if (tipoIdentificacionNormalizado == null) {
+            throw new ValidationException("Tipo de identificación debe ser: Cedula o RNC");
         }
 
         // Validar identificación
-        validateIdentification(identificacion, tipoIdentificacion);
+        validateIdentification(identificacion, tipoIdentificacionNormalizado);
 
-        // Obtener valores de campos opcionales con defaults
-        String forzarActualizar = request.forzarActualizar() != null ? request.forzarActualizar() : "FALSE";
-        String incluirFotoBinaria = request.incluirFotoBinaria() != null ? request.incluirFotoBinaria() : "FALSE";
-
-        // Validar valores de campos booleanos
-        if (!forzarActualizar.equals("TRUE") && !forzarActualizar.equals("FALSE")) {
+        // *** NORMALIZAR VALORES BOOLEANOS (case-insensitive) ***
+        String forzarActualizarOriginal = request.forceUpdate() != null ? request.forceUpdate() : Constants.BOOLEAN_FALSE;
+        String forzarActualizar = BooleanValueUtil.normalize(forzarActualizarOriginal);
+        if (forzarActualizar == null) {
             throw new ValidationException("forzarActualizar debe ser TRUE o FALSE");
         }
 
-        if (!incluirFotoBinaria.equals("TRUE") && !incluirFotoBinaria.equals("FALSE")) {
+        String incluirFotoBinariaOriginal = request.includeBinaryPhoto() != null ? request.includeBinaryPhoto() : Constants.BOOLEAN_FALSE;
+        String incluirFotoBinaria = BooleanValueUtil.normalize(incluirFotoBinariaOriginal);
+        if (incluirFotoBinaria == null) {
             throw new ValidationException("incluirFotoBinaria debe ser TRUE o FALSE");
         }
 
-        // Guardar datos validados en properties del exchange
+        // Guardar datos validados y normalizados en properties del exchange
         exchange.setProperty("identificacionRq", identificacion);
-        exchange.setProperty("tipoIdentificacionRq", tipoIdentificacion);
+        exchange.setProperty("tipoIdentificacionRq", tipoIdentificacionNormalizado);
         exchange.setProperty("forzarActualizarRq", forzarActualizar);
         exchange.setProperty("incluirFotoBinariaRq", incluirFotoBinaria);
 
@@ -97,32 +99,14 @@ public class ValidateConsultarDatosGeneralesClienteRequestProcessor implements P
 
         exchange.setProperty("originalSessionId", exchange.getIn().getHeader("sessionId"));
 
-        log.info("Validación exitosa para identificación: {} de tipo: {}", identificacion, tipoIdentificacion);
-    }
-
-    /**
-     * Normaliza el tipo de identificación de forma case-insensitive.
-     * 
-     * @param tipoIdentificacion tipo de identificación original
-     * @return tipo normalizado o null si es inválido
-     */
-    private String normalizeTipoIdentificacion(String tipoIdentificacion) {
-        if (tipoIdentificacion == null) return null;
-        
-        String tipo = tipoIdentificacion.trim();
-        
-        // Case-insensitive validation
-        if ("cedula".equalsIgnoreCase(tipo)) return "Cedula";
-        if ("rnc".equalsIgnoreCase(tipo)) return "RNC";
-        
-        return null; // Tipo inválido
+        log.info("Validación exitosa para identificación: {} de tipo: {}", identificacion, tipoIdentificacionNormalizado);
     }
 
     /**
      * Valida el número y tipo de identificación según las reglas de negocio.
      * 
      * @param identificacion número de identificación
-     * @param tipoIdentificacion tipo de identificación (ya normalizado)
+     * @param tipoIdentificacion tipo de identificación 
      * @throws ValidationException si la validación falla
      */
     private void validateIdentification(String identificacion, String tipoIdentificacion) throws ValidationException {
@@ -133,7 +117,7 @@ public class ValidateConsultarDatosGeneralesClienteRequestProcessor implements P
         identificacion = identificacion.trim();
 
         // Validar que solo contenga dígitos para cédula
-        if ("Cedula".equals(tipoIdentificacion)) {
+        if (Constants.IDENTIFICATION_TYPE_CEDULA.equals(tipoIdentificacion)) {
             if (!identificacion.matches("^[0-9]+$")) {
                 throw new ValidationException("Número de cédula debe contener solo dígitos numéricos");
             }
@@ -144,7 +128,7 @@ public class ValidateConsultarDatosGeneralesClienteRequestProcessor implements P
         }
 
         // Validar RNC
-        if ("RNC".equals(tipoIdentificacion)) {
+        if (Constants.IDENTIFICATION_TYPE_RNC.equals(tipoIdentificacion)) {
             if (!identificacion.matches("^[0-9]+$")) {
                 throw new ValidationException("Número de RNC debe contener solo dígitos numéricos");
             }
@@ -154,11 +138,5 @@ public class ValidateConsultarDatosGeneralesClienteRequestProcessor implements P
             }
         }
 
-        // Validar tipos de identificación permitidos (ya normalizado)
-        if (!"Cedula".equals(tipoIdentificacion) && !"RNC".equals(tipoIdentificacion)) {
-            throw new ValidationException("Tipo de identificación debe ser: Cedula, RNC");
-        }
-
-        log.debug("Identificación validada exitosamente: {} - {}", identificacion, tipoIdentificacion);
     }
 }

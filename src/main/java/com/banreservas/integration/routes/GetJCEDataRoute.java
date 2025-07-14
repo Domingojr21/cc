@@ -6,27 +6,30 @@ import org.apache.camel.builder.RouteBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.enterprise.context.ApplicationScoped;
 
 /**
- * Producer para el servicio ConsultarDatosGeneralesClienteJuridico.
- * Se ejecuta cuando el tipo de identificación es RNC.
+ * Producer para el servicio ConsultarDatosJCE.
+ * Se ejecuta cuando el tipo de identificación es Cédula y se fuerza actualización.
  * 
- * @author Jenrry Monegro - c-jmonegro@banreservas.com
- * @since 04/07/2025
+ * @author Domingo Ruiz - c-djruiz@banreservas.com
+ * @since 11/07/2025
  * @version 1.0.0
  */
 @ApplicationScoped
-public class RestProducerConsultarDatosJuridico extends RouteBuilder {
+public class GetJCEDataRoute extends RouteBuilder {
     
-    private static final Logger logger = LoggerFactory.getLogger(RestProducerConsultarDatosJuridico.class);
+    private static final Logger logger = LoggerFactory.getLogger(GetJCEDataRoute.class);
     
     @Override
     public void configure() throws Exception {
         
-        from("direct:consultar-datos-juridico-service")
-            .routeId("consultar-datos-juridico-service-route")
-            .log(LoggingLevel.INFO, logger, "Iniciando ConsultarDatosGeneralesClienteJuridico")
+        from("direct:consultar-datos-jce-service")
+            .routeId("consultar-datos-jce-service-route")
+            .log(LoggingLevel.INFO, logger, "Iniciando ConsultarDatosJCE")
             
             .removeHeaders("CamelHttp*")
             .removeHeader("host")
@@ -39,29 +42,29 @@ public class RestProducerConsultarDatosJuridico extends RouteBuilder {
                 .when(simple("${exchangeProperty.originalSessionId} != null"))
                     .setHeader("sessionId", simple("${exchangeProperty.originalSessionId}"))
                 .otherwise()
-                    .setHeader("sessionId", constant("juridico123"))
+                    .setHeader("sessionId", constant("jce123"))
             .end()
             
-            .toD("{{consultar.datos.generales.cliente.juridico.url}}?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.generales.cliente.juridico}}&connectionRequestTimeout={{timeout.consultar.datos.generales.cliente.juridico}}")
+            .toD("{{consultar.datos.jcedp.url}}?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.jcedp}}&connectionRequestTimeout={{timeout.consultar.datos.jcedp}}")
             
             .log(LoggingLevel.INFO, logger, "Código HTTP recibido: ${header.CamelHttpResponseCode}")
             .log(LoggingLevel.INFO, logger, "Respuesta recibida del backend: ${body}")
             
             .choice()
                 .when(header("CamelHttpResponseCode").isEqualTo(200))
-                    .log(LoggingLevel.INFO, logger, "ConsultarDatosGeneralesClienteJuridico exitoso")
+                    .log(LoggingLevel.INFO, logger, "ConsultarDatosJCE exitoso")
                 .when(header("CamelHttpResponseCode").isNotEqualTo(200))
-                    .log(LoggingLevel.ERROR, logger, "Error en ConsultarDatosGeneralesClienteJuridico - Código: ${header.CamelHttpResponseCode}")
+                    .log(LoggingLevel.ERROR, logger, "Error en ConsultarDatosJCE - Código: ${header.CamelHttpResponseCode}")
                     .log(LoggingLevel.ERROR, logger, "Respuesta de error del backend: ${body}")
                     .process(exchange -> {
                         try {
                             String responseBody = exchange.getIn().getBody(String.class);
                             Integer httpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
-                            String errorMessage = "Error en el servicio backend juridico";
+                            String errorMessage = "Error en el servicio backend JCE";
                             
                             if (responseBody != null && responseBody.contains("responseMessage")) {
-                                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                                com.fasterxml.jackson.databind.JsonNode jsonResponse = mapper.readTree(responseBody);
+                                ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                                JsonNode jsonResponse = mapper.readTree(responseBody);
                                 errorMessage = jsonResponse.path("header").path("responseMessage").asText(errorMessage);
                             }
                             
@@ -70,14 +73,14 @@ public class RestProducerConsultarDatosJuridico extends RouteBuilder {
                             exchange.setProperty("hasBackendError", true);
                             exchange.setProperty("CamelExceptionCaught", new RuntimeException(errorMessage));
                             
-                            log.error("*** DEBUG: Error procesado - backendErrorCode={}, backendErrorMessage={}", httpCode, errorMessage);
+                            log.error("Error procesado - backendErrorCode={}, backendErrorMessage={}", httpCode, errorMessage);
                             
                         } catch (Exception e) {
                             Integer httpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
                             exchange.setProperty("backendErrorCode", httpCode != null ? httpCode : "500");
-                            exchange.setProperty("backendErrorMessage", "Error procesando respuesta del backend juridico");
+                            exchange.setProperty("backendErrorMessage", "Error procesando respuesta del backend JCE");
                             exchange.setProperty("hasBackendError", true);
-                            exchange.setProperty("CamelExceptionCaught", new RuntimeException("Error procesando respuesta del backend juridico"));
+                            exchange.setProperty("CamelExceptionCaught", new RuntimeException("Error procesando respuesta del backend JCE"));
                         }
                     })
             .end();

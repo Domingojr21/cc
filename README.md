@@ -1,4 +1,4 @@
-# ms-orq-cliente-banreservas.
+# ms-orq-consultar-datos-generales-cliente-micm.
 
 Este proyecto es un microservicio SOAP funcionando como orquestador encargado de consumir el servicio **ClienteBanservas_SP** de legado.
 
@@ -57,7 +57,7 @@ O, si no tienes GraalVM instalado, puedes construir el ejecutable nativo en un c
 Luego, puedes ejecutar tu ejecutable nativo con:
 
 ```shell script
-./target/ms-orq-cliente-banreservas-1.0.0-SNAPSHOT-runner
+./target/ms-orq-consultar-datos-generales-cliente-micm-1.0.0-SNAPSHOT-runner
 ```
 
 Para obtener más información sobre cómo construir ejecutables nativos, consulta https://quarkus.io/guides/maven-tooling.
@@ -103,7 +103,7 @@ El servicio invoca un servicio REST llamado ms-cliente-banreservas-sp, que devue
 
 ##### Variables de Entorno/Secrets
 
-La integración con el servicio REST ms-orq-cliente-banreservas requiere la siguiente configuración para consumo:
+La integración con el servicio REST ms-orq-consultar-datos-generales-cliente-micm requiere la siguiente configuración para consumo:
 
 ```properties
 
@@ -176,7 +176,7 @@ curl --location 'http://localhost:8080/banreservas/client/api/v1/banreservasClie
 
 ##### Códigos de Respuesta
 
-La API de ms-orq-cliente-banreservas utiliza varios códigos de respuesta para indicar el estado de la solicitud. A continuación se describen los códigos de respuesta específicos utilizados por la API:
+La API de ms-orq-consultar-datos-generales-cliente-micm utiliza varios códigos de respuesta para indicar el estado de la solicitud. A continuación se describen los códigos de respuesta específicos utilizados por la API:
 
 - **Código de Respuesta:** 200
 - **Descripción:** Success.
@@ -410,7 +410,7 @@ Cobertura de pruebas unitarias:
 
 ##### Configuración de CXF para el Cliente SOAP
 
-La integración con el servicio REST ms-orq-cliente-banreservas requiere la siguiente configuración para consumo:
+La integración con el servicio REST ms-orq-consultar-datos-generales-cliente-micm requiere la siguiente configuración para consumo:
 
 ```properties
 
@@ -449,7 +449,7 @@ quarkus.smallrye-health.root-path=/banreservas/client/api/v1/health
 Para configurar de manera correcta la auditoría a nivel de logs requerimos:
 
 ```properties
-log.appender.applicationName=ms-orq-cliente-banreservas
+log.appender.applicationName=ms-orq-consultar-datos-generales-cliente-micm
 log.appender.urlService=https://ms-audit-receiver-dev.apps.az-aro-dev.banreservas.com/audit/api/v1/auditReceiver
 log.appender.ofuscado=NumeroIdentificacion[0:12]
 log.appender.queue=audit-queue

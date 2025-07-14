@@ -16,7 +16,6 @@ public class Constants {
     // Identification Types
     public static final String IDENTIFICATION_TYPE_CEDULA = "Cedula";
     public static final String IDENTIFICATION_TYPE_RNC = "RNC";
-    public static final String IDENTIFICATION_TYPE_PASSPORT = "Pasaporte";
     
     // Boolean Values
     public static final String BOOLEAN_TRUE = "TRUE";
@@ -36,7 +35,7 @@ public class Constants {
     // Request Validation Messages
     public static final String VALIDATION_MESSAGE_IDENTIFICATION_REQUIRED = "Número de identificación es requerido";
     public static final String VALIDATION_MESSAGE_IDENTIFICATION_TYPE_REQUIRED = "Tipo de identificación es requerido";
-    public static final String VALIDATION_MESSAGE_INVALID_IDENTIFICATION_TYPE = "Tipo de identificación debe ser: Cedula, RNC o Pasaporte";
+    public static final String VALIDATION_MESSAGE_INVALID_IDENTIFICATION_TYPE = "Tipo de identificación debe ser: Cedula o RNC";
     public static final String VALIDATION_MESSAGE_INVALID_FORCE_UPDATE = "ForzarActualizar debe ser TRUE o FALSE";
     public static final String VALIDATION_MESSAGE_INVALID_INCLUDE_BINARY_PHOTO = "IncluirFotoBinaria debe ser TRUE o FALSE";
     

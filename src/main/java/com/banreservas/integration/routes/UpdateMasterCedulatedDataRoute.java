@@ -15,14 +15,14 @@ import jakarta.enterprise.context.ApplicationScoped;
  * Producer para el servicio ActualizarDatosMaestroCedulados.
  * Se ejecuta después de ConsultarDatosJCE para actualizar los datos maestros.
  * 
- * @author Jenrry Monegro - c-jmonegro@banreservas.com
- * @since 04/07/2025
+ * @author Domingo Ruiz - c-djruiz@banreservas.com
+ * @since 11/07/2025
  * @version 1.0.0
  */
 @ApplicationScoped
-public class RestProducerActualizarDatosMaestro extends RouteBuilder {
+public class UpdateMasterCedulatedDataRoute extends RouteBuilder {
     
-    private static final Logger logger = LoggerFactory.getLogger(RestProducerActualizarDatosMaestro.class);
+    private static final Logger logger = LoggerFactory.getLogger(UpdateMasterCedulatedDataRoute.class);
     
     @Override
     public void configure() throws Exception {
@@ -95,7 +95,7 @@ public class RestProducerActualizarDatosMaestro extends RouteBuilder {
                             exchange.setProperty("hasBackendError", true);
                             exchange.setProperty("CamelExceptionCaught", new RuntimeException(errorMessage));
                             
-                            log.error("*** DEBUG: Error procesado - backendErrorCode={}, backendErrorMessage={}", httpCode, errorMessage);
+                            log.error("Error procesado - backendErrorCode={}, backendErrorMessage={}", httpCode, errorMessage);
                             
                         } catch (Exception e) {
                             Integer httpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
