@@ -29,9 +29,14 @@ public class JCEDataServiceRoute extends RouteBuilder {
     @ConfigProperty(name = "consultar.datos.jcedp.url")
     String jceUrl;
 
+    @ConfigProperty(name = "actualizar.datos.maestro.cedulados.url")
+    String updateMasterUrl;
     
     @ConfigProperty(name = "timeout.consultar.datos.jcedp") 
     String timeOut;
+
+    @ConfigProperty(name = "timeout.actualizar.datos.maestro.cedulados")
+    String updateTimeout;
 
     @Override
     public void configure() throws Exception {
@@ -113,7 +118,7 @@ public class JCEDataServiceRoute extends RouteBuilder {
             .setHeader("Accept", constant("application/json"))
             .setHeader("sessionId", simple("${exchangeProperty.originalSessionId}"))
             
-            .toD(jceUrl+"?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout="+timeOut+"&connectionRequestTimeout="+timeOut)
+            .toD(updateMasterUrl+"?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout="+updateTimeout+"&connectionRequestTimeout="+updateTimeout)
             
             .choice()
                 .when(header("CamelHttpResponseCode").isEqualTo(200))
