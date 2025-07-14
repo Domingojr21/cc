@@ -281,6 +281,8 @@ class ClientGeneralDataOrchestrationRouteTest extends CamelQuarkusTestSupport {
                 .when()
                 .post(ENDPOINT)
                 .then()
+                .log()
+                .all()
                 .statusCode(200)
                 .body("identificacion.numeroIdentificacion", is("101199662"))
                 .body("identificacion.tipoIdentificacion", is("RNC"))

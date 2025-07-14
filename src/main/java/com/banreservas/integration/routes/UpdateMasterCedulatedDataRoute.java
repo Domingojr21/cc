@@ -27,6 +27,9 @@ public class UpdateMasterCedulatedDataRoute extends RouteBuilder {
     @ConfigProperty(name = "actualizar.datos.maestro.cedulados.url")
     String updateMasterUrl;
     
+    @ConfigProperty(name = "timeout.actualizar.datos.maestro.cedulados") 
+    String timeOut;
+    
     @Override
     public void configure() throws Exception {
         
@@ -48,7 +51,7 @@ public class UpdateMasterCedulatedDataRoute extends RouteBuilder {
                     .setHeader("sessionId", constant("actualizar123"))
             .end()
             
-            .toD(updateMasterUrl+"?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.actualizar.datos.maestro.cedulados}}&connectionRequestTimeout={{timeout.actualizar.datos.maestro.cedulados}}")
+            .toD(updateMasterUrl+"?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout="+timeOut+"&connectionRequestTimeout="+timeOut)
             
             .log(LoggingLevel.INFO, logger, "Código HTTP recibido: ${header.CamelHttpResponseCode}")
             .log(LoggingLevel.INFO, logger, "Respuesta recibida del backend: ${body}")

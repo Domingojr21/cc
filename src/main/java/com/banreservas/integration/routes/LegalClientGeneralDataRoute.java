@@ -27,7 +27,9 @@ public class LegalClientGeneralDataRoute extends RouteBuilder {
     
     @ConfigProperty(name = "consultar.datos.generales.cliente.juridico.url")
     String legalClientUrl;
-
+    
+    @ConfigProperty(name = "timeout.consultar.datos.generales.cliente.juridico") 
+    String timeOut;
     
     @Override
     public void configure() throws Exception {
@@ -59,7 +61,7 @@ public class LegalClientGeneralDataRoute extends RouteBuilder {
             .setHeader("Accept", constant("application/json"))
             .setHeader("sessionId", simple("${exchangeProperty.originalSessionId}"))
             
-            .toD(legalClientUrl + "?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.generales.cliente.juridico}}&connectionRequestTimeout={{timeout.consultar.datos.generales.cliente.juridico}}")
+            .toD(legalClientUrl + "?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout="+timeOut+"&connectionRequestTimeout="+timeOut)
             
             .choice()
                 .when(header("CamelHttpResponseCode").isEqualTo(200))
