@@ -12,8 +12,8 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
  * @version 1.0.0
  */
 @RegisterForReflection
-public record GetClientGeneralDataInboundResponse(
-        @JsonProperty("identificacion") Identificacion identificacion,
+public record GetClientGeneralDataResponse(
+        @JsonProperty("identificacion") Identification identificacion,
         @JsonProperty("nombres") String names,
         @JsonProperty("primerApellido") String firstLastName,
         @JsonProperty("segundoApellido") String secondLastName,
@@ -31,7 +31,7 @@ public record GetClientGeneralDataInboundResponse(
         @JsonProperty("fotoBinario") String photoBinary) implements Serializable {
 
     @RegisterForReflection
-    public record Identificacion(
+    public record Identification(
             @JsonProperty("numeroIdentificacion") String identificationNumber,
             @JsonProperty("tipoIdentificacion") String identificationType) implements Serializable {
     }

@@ -5,8 +5,8 @@ import org.apache.camel.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.banreservas.integration.model.inbound.GetClientGeneralDataInboundResponse;
-import com.banreservas.integration.model.inbound.GetClientGeneralDataInboundResponse.Identificacion;
+import com.banreservas.integration.model.inbound.GetClientGeneralDataResponse;
+import com.banreservas.integration.model.inbound.GetClientGeneralDataResponse.Identification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -15,9 +15,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
- * Processor para generar respuestas de error en formato JSON según el protocolo
- * MICM.
- * Se utiliza cuando ocurren excepciones durante el procesamiento.
+ * Procesador para generar respuestas de error en formato JSON según el protocolo MICM.
+ * Maneja la construcción de respuestas de error estandarizadas cuando ocurren excepciones.
  *
  * @author Domingo Ruiz - c-djruiz@banreservas.com
  * @since 10/07/2025
@@ -31,86 +30,151 @@ public class ErrorResponseProcessorMICM implements Processor {
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
-     * Genera una respuesta JSON de error basada en la excepción ocurrida
+     * Genera una respuesta JSON de error basada en la excepción ocurrida.
      * 
      * @param exchange el intercambio de Camel que contiene la información del error
      * @throws Exception si ocurre un error durante el procesamiento
      */
     @Override
     public void process(Exchange exchange) throws Exception {
+        ErrorInfo errorInfo = extractErrorInfo(exchange);
+        
+        ObjectNode errorResponse = buildErrorResponse(errorInfo);
+        
+        setResponseInExchange(exchange, errorResponse, errorInfo.httpCode());
+        setHttpHeaders(exchange, errorInfo.httpCode());
+        preserveSessionId(exchange);
 
-        Integer backendHttpCode = null;
+        log.info("Respuesta de error JSON MICM generada - Código: {}, Mensaje: {}", 
+                errorInfo.httpCode(), errorInfo.message());
+    }
+
+    /**
+     * Extrae la información de error del exchange.
+     */
+    private ErrorInfo extractErrorInfo(Exchange exchange) {
+        Integer httpCode = determineHttpCode(exchange);
+        String message = determineErrorMessage(exchange);
+        
+        return new ErrorInfo(httpCode, message);
+    }
+
+    /**
+     * Determina el código HTTP del error.
+     */
+    private Integer determineHttpCode(Exchange exchange) {
+        // Intentar obtener del property backendErrorCode
         String backendErrorCodeStr = getPropertySafely(exchange, "backendErrorCode");
         if (backendErrorCodeStr != null) {
             try {
-                backendHttpCode = Integer.parseInt(backendErrorCodeStr);
+                return Integer.parseInt(backendErrorCodeStr);
             } catch (NumberFormatException e) {
                 log.warn("Error parseando backendErrorCode: {}", backendErrorCodeStr);
             }
         }
 
-        if (backendHttpCode == null) {
-            // Intentar obtener del header original
-            backendHttpCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
+        // Intentar obtener del header HTTP
+        Integer headerCode = exchange.getIn().getHeader("CamelHttpResponseCode", Integer.class);
+        if (headerCode != null) {
+            return headerCode;
         }
 
-        if (backendHttpCode == null) {
-            backendHttpCode = 500; // Código por defecto
+        return 500; // Código por defecto
+    }
+
+    /**
+     * Determina el mensaje de error.
+     */
+    private String determineErrorMessage(Exchange exchange) {
+        String message = getPropertySafely(exchange, "backendErrorMessage");
+        if (isValidMessage(message)) {
+            return message;
         }
 
-        // Obtener mensaje de error del backend
-        String mensaje = getPropertySafely(exchange, "backendErrorMessage");
-        if (mensaje == null || mensaje.trim().isEmpty()) {
-            mensaje = getPropertySafely(exchange, "Mensaje");
-            if (mensaje == null || mensaje.trim().isEmpty()) {
-                mensaje = "Error interno del servidor";
-            }
+        message = getPropertySafely(exchange, "Mensaje");
+        if (isValidMessage(message)) {
+            return message;
         }
 
-        Identificacion identificacion = new Identificacion("", "");
+        return "Error interno del servidor";
+    }
 
-        GetClientGeneralDataInboundResponse errorResponse = new GetClientGeneralDataInboundResponse(
-                identificacion,
+    /**
+     * Verifica si un mensaje es válido (no nulo y no vacío).
+     */
+    private boolean isValidMessage(String message) {
+        return message != null && !message.trim().isEmpty();
+    }
+
+    /**
+     * Construye la respuesta de error en formato ObjectNode.
+     */
+    private ObjectNode buildErrorResponse(ErrorInfo errorInfo) {
+        Identification emptyIdentification = new Identification("", "");
+
+        GetClientGeneralDataResponse baseResponse = new GetClientGeneralDataResponse(
+                emptyIdentification,
                 "", "", "", "0001-01-01", "", "", "", "",
                 "", "", "", "", "0001-01-01", "", "");
 
-        // Convertir a ObjectNode para agregar campos de error adicionales
-        ObjectNode errorNode = mapper.valueToTree(errorResponse);
+        ObjectNode errorNode = mapper.valueToTree(baseResponse);
+        
+        // Agregar campos específicos de error
+        errorNode.put("mensaje", errorInfo.message());
+        errorNode.put("codigo", errorInfo.httpCode());
 
-        // Agregar campos de error específicos
-        errorNode.put("mensaje", mensaje);
-        errorNode.put("codigo", backendHttpCode);
+        return errorNode;
+    }
 
-        exchange.getIn().setBody(errorNode);
+    /**
+     * Establece la respuesta en el exchange.
+     */
+    private void setResponseInExchange(Exchange exchange, ObjectNode errorResponse, Integer httpCode) {
+        exchange.getIn().setBody(errorResponse);
+        exchange.getMessage().setBody(errorResponse);
+    }
 
+    /**
+     * Configura los headers HTTP de respuesta.
+     */
+    private void setHttpHeaders(Exchange exchange, Integer httpCode) {
+        String statusText = getHttpStatusText(httpCode);
+        
         // Headers principales de Camel
-        exchange.getIn().setHeader("CamelHttpResponseCode", backendHttpCode);
-        exchange.getIn().setHeader("CamelHttpResponseText", getHttpStatusText(backendHttpCode));
+        exchange.getIn().setHeader("CamelHttpResponseCode", httpCode);
+        exchange.getIn().setHeader("CamelHttpResponseText", statusText);
         exchange.getIn().setHeader("Content-Type", "application/json");
 
-        // Headers específicos para Servlet
-        exchange.getIn().setHeader("HTTP_RESPONSE_CODE", backendHttpCode);
-
-        // Configurar en el message de salida también
-        exchange.getMessage().setHeader("CamelHttpResponseCode", backendHttpCode);
-        exchange.getMessage().setHeader("CamelHttpResponseText", getHttpStatusText(backendHttpCode));
+        // Headers para el mensaje de salida
+        exchange.getMessage().setHeader("CamelHttpResponseCode", httpCode);
+        exchange.getMessage().setHeader("CamelHttpResponseText", statusText);
         exchange.getMessage().setHeader("Content-Type", "application/json");
-        exchange.getMessage().setBody(exchange.getIn().getBody());
 
+        // Configurar HttpServletResponse si está disponible
+        configureServletResponse(exchange, httpCode);
+    }
+
+    /**
+     * Configura la respuesta HTTP del servlet si está disponible.
+     */
+    private void configureServletResponse(Exchange exchange, Integer httpCode) {
         HttpServletResponse httpResponse = exchange.getIn().getHeader("CamelHttpServletResponse",
                 HttpServletResponse.class);
         if (httpResponse != null) {
-            httpResponse.setStatus(backendHttpCode);
+            httpResponse.setStatus(httpCode);
             httpResponse.setContentType("application/json");
-            log.info("Código HTTP configurado directamente en HttpServletResponse: {}", backendHttpCode);
+            log.info("Código HTTP configurado en HttpServletResponse: {}", httpCode);
         }
+    }
 
+    /**
+     * Preserva el sessionId original en la respuesta.
+     */
+    private void preserveSessionId(Exchange exchange) {
         String sessionId = getHeaderSafely(exchange, "sessionId");
         if (sessionId != null) {
             exchange.getIn().setHeader("sessionId", sessionId);
         }
-
-        log.info("Respuesta de error JSON MICM generada con - Código: {}, Mensaje: {}", backendHttpCode, mensaje);
     }
 
     /**
@@ -131,7 +195,7 @@ public class ErrorResponseProcessorMICM implements Processor {
     }
 
     /**
-     * Obtiene una propiedad del exchange de forma segura (sin lanzar excepción).
+     * Obtiene una propiedad del exchange de forma segura.
      */
     private String getPropertySafely(Exchange exchange, String propertyName) {
         try {
@@ -144,7 +208,7 @@ public class ErrorResponseProcessorMICM implements Processor {
     }
 
     /**
-     * Obtiene un header del exchange de forma segura (sin lanzar excepción).
+     * Obtiene un header del exchange de forma segura.
      */
     private String getHeaderSafely(Exchange exchange, String headerName) {
         try {
@@ -155,4 +219,9 @@ public class ErrorResponseProcessorMICM implements Processor {
             return null;
         }
     }
+
+    /**
+     * Record que encapsula la información de error.
+     */
+    private record ErrorInfo(Integer httpCode, String message) {}
 }

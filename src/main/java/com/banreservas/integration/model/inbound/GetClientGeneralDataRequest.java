@@ -12,7 +12,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
  * @version 1.0.0
  */
 @RegisterForReflection
-public record GetClientGeneralDataInboundRequest(
+public record GetClientGeneralDataRequest(
         @JsonProperty("identificacion") String indentificationNumber,
         @JsonProperty("tipoIdentificacion") String identificationType,
         @JsonProperty("forzarActualizar") String forceUpdate,
