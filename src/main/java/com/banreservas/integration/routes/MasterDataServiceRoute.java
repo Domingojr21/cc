@@ -3,6 +3,7 @@ package com.banreservas.integration.routes;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class MasterDataServiceRoute extends RouteBuilder {
     
     private static final Logger logger = LoggerFactory.getLogger(MasterDataServiceRoute.class);
+    @ConfigProperty(name = "consultar.datos.maestro.cedulados.url") 
+    String masterDataUrl;
     
     @Override
     public void configure() throws Exception {
@@ -58,7 +61,7 @@ public class MasterDataServiceRoute extends RouteBuilder {
             .setHeader("Accept", constant("application/json"))
             .setHeader("sessionId", simple("${exchangeProperty.originalSessionId}"))
             
-            .toD("{{consultar.datos.maestro.cedulados.url}}?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.maestro.cedulados}}&connectionRequestTimeout={{timeout.consultar.datos.maestro.cedulados}}")
+            .toD(masterDataUrl + "?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.maestro.cedulados}}&connectionRequestTimeout={{timeout.consultar.datos.maestro.cedulados}}")
             
             .choice()
                 .when(header("CamelHttpResponseCode").isEqualTo(200))

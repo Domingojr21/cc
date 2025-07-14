@@ -3,6 +3,7 @@ package com.banreservas.integration.routes;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class LegalClientGeneralDataRoute extends RouteBuilder {
     
     private static final Logger logger = LoggerFactory.getLogger(LegalClientGeneralDataRoute.class);
+    
+    @ConfigProperty(name = "consultar.datos.generales.cliente.juridico.url")
+    String legalClientUrl;
+
     
     @Override
     public void configure() throws Exception {
@@ -54,7 +59,7 @@ public class LegalClientGeneralDataRoute extends RouteBuilder {
             .setHeader("Accept", constant("application/json"))
             .setHeader("sessionId", simple("${exchangeProperty.originalSessionId}"))
             
-            .toD("{{consultar.datos.generales.cliente.juridico.url}}?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.generales.cliente.juridico}}&connectionRequestTimeout={{timeout.consultar.datos.generales.cliente.juridico}}")
+            .toD(legalClientUrl + "?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.consultar.datos.generales.cliente.juridico}}&connectionRequestTimeout={{timeout.consultar.datos.generales.cliente.juridico}}")
             
             .choice()
                 .when(header("CamelHttpResponseCode").isEqualTo(200))

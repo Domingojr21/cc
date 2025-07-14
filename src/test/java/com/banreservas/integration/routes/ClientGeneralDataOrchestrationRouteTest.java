@@ -38,6 +38,8 @@ class ClientGeneralDataOrchestrationRouteTest extends CamelQuarkusTestSupport {
                 .body("mensaje", containsString("Request body no puede ser nulo o vacío"));
     }
 
+    
+
     @Test
     void shouldRejectInvalidJsonFormat() {
         given()

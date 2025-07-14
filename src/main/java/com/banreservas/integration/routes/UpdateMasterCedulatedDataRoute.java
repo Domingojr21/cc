@@ -3,6 +3,7 @@ package com.banreservas.integration.routes;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class UpdateMasterCedulatedDataRoute extends RouteBuilder {
     
     private static final Logger logger = LoggerFactory.getLogger(UpdateMasterCedulatedDataRoute.class);
+    @ConfigProperty(name = "actualizar.datos.maestro.cedulados.url")
+    String updateMasterUrl;
     
     @Override
     public void configure() throws Exception {
@@ -45,7 +48,7 @@ public class UpdateMasterCedulatedDataRoute extends RouteBuilder {
                     .setHeader("sessionId", constant("actualizar123"))
             .end()
             
-            .toD("{{actualizar.datos.maestro.cedulados.url}}?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.actualizar.datos.maestro.cedulados}}&connectionRequestTimeout={{timeout.actualizar.datos.maestro.cedulados}}")
+            .toD(updateMasterUrl+"?bridgeEndpoint=true&throwExceptionOnFailure=false&connectTimeout={{timeout.actualizar.datos.maestro.cedulados}}&connectionRequestTimeout={{timeout.actualizar.datos.maestro.cedulados}}")
             
             .log(LoggingLevel.INFO, logger, "Código HTTP recibido: ${header.CamelHttpResponseCode}")
             .log(LoggingLevel.INFO, logger, "Respuesta recibida del backend: ${body}")

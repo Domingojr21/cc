@@ -4,6 +4,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.dataformat.JsonLibrary;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,15 @@ public class ClientGeneralDataOrchestrationRoute extends RouteBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientGeneralDataOrchestrationRoute.class);
     private static final Logger AUDIT_LOGGER = LoggerFactory.getLogger("ms-orq-consultar-datos-generales-cliente-micm");
+
+    @ConfigProperty(name = "consultar.datos.maestro.cedulados.url") 
+    String masterDataUrl;
+
+    @ConfigProperty(name = "consultar.datos.jcedp.url")
+    String jceUrl;
+
+    @ConfigProperty(name = "actualizar.datos.maestro.cedulados.url")
+    String updateMasterUrl;
 
     @Inject RequestValidationProcessor requestValidationProcessor;
     @Inject OrchestrationDecisionProcessor orchestrationDecisionProcessor;
