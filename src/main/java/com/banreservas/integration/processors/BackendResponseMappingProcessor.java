@@ -177,6 +177,9 @@ public class BackendResponseMappingProcessor implements Processor {
         String birthDate = client.path("birthDate").textValue();
         String cancelDate = client.path("cancelDate").textValue();
 
+        birthDate = (birthDate == null || birthDate.isEmpty()) ? "0001-01-01T00:00:00" : birthDate;
+        cancelDate = (cancelDate == null || cancelDate.isEmpty()) ? "0001-01-01T00:00:00" : cancelDate;
+
         return new GetClientGeneralDataResponse(
             identificacion,
             client.path("names").textValue(),

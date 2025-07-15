@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.servlet.http.HttpServletResponse;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
@@ -150,21 +149,6 @@ public class ErrorResponseProcessorMICM implements Processor {
         exchange.getMessage().setHeader("CamelHttpResponseText", statusText);
         exchange.getMessage().setHeader("Content-Type", "application/json");
 
-        // Configurar HttpServletResponse si está disponible
-        configureServletResponse(exchange, httpCode);
-    }
-
-    /**
-     * Configura la respuesta HTTP del servlet si está disponible.
-     */
-    private void configureServletResponse(Exchange exchange, Integer httpCode) {
-        HttpServletResponse httpResponse = exchange.getIn().getHeader("CamelHttpServletResponse",
-                HttpServletResponse.class);
-        if (httpResponse != null) {
-            httpResponse.setStatus(httpCode);
-            httpResponse.setContentType("application/json");
-            log.info("Código HTTP configurado en HttpServletResponse: {}", httpCode);
-        }
     }
 
     /**
