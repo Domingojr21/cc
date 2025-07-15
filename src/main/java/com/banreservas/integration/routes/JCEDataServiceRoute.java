@@ -129,9 +129,6 @@ public class JCEDataServiceRoute extends RouteBuilder {
             .end();
     }
     
-    /**
-     * Extrae los datos del cliente JCE para la actualización de datos maestros.
-     */
     private void extractJceDataForUpdate(Exchange exchange) {
         try {
             String jceResponse = exchange.getProperty("jceResponse", String.class);
@@ -164,9 +161,6 @@ public class JCEDataServiceRoute extends RouteBuilder {
         }
     }
 
-    /**
-     * Construye el request de actualización de datos maestros a partir de los datos JCE.
-     */
     private UpdateMasterCedulatedDataRequest buildUpdateRequest(JsonNode client) {
         // Extraer datos de identificación
         String identificationNumber = "";
@@ -174,46 +168,54 @@ public class JCEDataServiceRoute extends RouteBuilder {
         if (client.has("identifications") && client.get("identifications").isArray() && 
             client.get("identifications").size() > 0) {
             JsonNode identification = client.get("identifications").get(0);
-            identificationNumber = identification.path("number").asText();
-            identificationType = identification.path("type").asText();
+            identificationNumber = getTextValueSafe(identification, "number");
+            identificationType = getTextValueSafe(identification, "type");
         }
         
-        String binaryPhoto = client.path("photoBinary").asText("");
-        if (binaryPhoto == null || binaryPhoto.trim().isEmpty()) {
+        String binaryPhoto = getTextValueSafe(client, "photoBinary");
+        if (binaryPhoto.trim().isEmpty()) {
             binaryPhoto = "";
             logger.info("JCE no retornó foto binaria, usando string vacío para actualización");
         }
         
         return UpdateMasterCedulatedDataRequest.fromJCEClientData(
             identificationNumber, identificationType,
-            client.path("names").asText(),
-            client.path("firstSurname").asText(),
-            client.path("secondSurname").asText(),
-            client.path("birthDate").asText(),
-            client.path("birthPlace").asText(),
-            client.path("gender").asText(),
-            client.path("maritalStatus").asText(),
-            client.path("categoryId").asText(),
-            client.path("category").asText(),
-            client.path("cancelReasonId").asText(),
-            client.path("cancelReason").asText(),
-            client.path("stateId").asText(),
-            client.path("state").asText(),
-            client.path("cancelDate").asText(),
-            client.path("nationCode").asText(),
-            client.path("nationality").asText(),
+            getTextValueSafe(client, "names"),
+            getTextValueSafe(client, "firstSurname"),
+            getTextValueSafe(client, "secondSurname"),
+            getTextValueSafe(client, "birthDate"),
+            getTextValueSafe(client, "birthPlace"),
+            getTextValueSafe(client, "gender"),
+            getTextValueSafe(client, "maritalStatus"),
+            getTextValueSafe(client, "categoryId"),
+            getTextValueSafe(client, "category"),
+            getTextValueSafe(client, "cancelReasonId"),
+            getTextValueSafe(client, "cancelReason"),
+            getTextValueSafe(client, "stateId"),
+            getTextValueSafe(client, "state"),
+            getTextValueSafe(client, "cancelDate"),
+            getTextValueSafe(client, "nationCode"),
+            getTextValueSafe(client, "nationality"),
             binaryPhoto,
-            client.path("expirationDate").asText()
+            getTextValueSafe(client, "expirationDate")
         );
     }
 
-    /**
-     * Maneja errores específicos de la actualización de datos maestros.
-     */
+    private String getTextValueSafe(JsonNode node, String fieldName) {
+        if (node == null || !node.has(fieldName)) {
+            return "";
+        }
+        JsonNode fieldNode = node.get(fieldName);
+        if (fieldNode == null || fieldNode.isNull()) {
+            return "";
+        }
+        String value = fieldNode.asText();
+        return value != null ? value : "";
+    }
+
     private void handleUpdateMasterError(Exchange exchange) {
         String errorMessage = exchange.getProperty("backendErrorMessage", String.class);
         
-        // Si el error es por foto binaria vacía, continuar con respuesta JCE
         if (errorMessage != null && errorMessage.contains("binaryPhoto no puede estar vacío")) {
             logger.warn("Actualización falló por foto binaria vacía - continuando con respuesta JCE");
             exchange.setProperty("hasBackendError", false);
@@ -224,16 +226,10 @@ public class JCEDataServiceRoute extends RouteBuilder {
         }
     }
     
-    /**
-     * Procesa errores del servicio JCE.
-     */
     private void processBackendError(Exchange exchange) {
         processGenericBackendError(exchange, "Error en el servicio JCE");
     }
 
-    /**
-     * Procesa errores del servicio de actualización de datos maestros.
-     */
     private void processUpdateMasterBackendError(Exchange exchange) {
         try {
             String responseBody = exchange.getIn().getBody(String.class);
@@ -246,7 +242,6 @@ public class JCEDataServiceRoute extends RouteBuilder {
                 
                 String headerMessage = jsonResponse.path("header").path("responseMessage").asText();
                 
-                // Construir mensaje detallado incluyendo errores del body
                 StringBuilder detailedMessage = new StringBuilder();
                 detailedMessage.append("ActualizarDatosMaestroCedulados - ").append(headerMessage);
                 
@@ -278,9 +273,6 @@ public class JCEDataServiceRoute extends RouteBuilder {
         }
     }
 
-    /**
-     * Procesa errores genéricos de servicios backend.
-     */
     private void processGenericBackendError(Exchange exchange, String defaultMessage) {
         try {
             String responseBody = exchange.getIn().getBody(String.class);

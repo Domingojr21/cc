@@ -27,13 +27,8 @@ public class BackendResponseMappingProcessor implements Processor {
 
     private static final Logger log = LoggerFactory.getLogger(BackendResponseMappingProcessor.class);
     private final ObjectMapper mapper = new ObjectMapper();
+    private static final String DEFAULT_DATE = "0001-01-01T00:00:00";
 
-    /**
-     * Mapea la respuesta del servicio backend ejecutado al formato de respuesta MICM.
-     * 
-     * @param exchange el intercambio de Camel que contiene las respuestas de los servicios
-     * @throws Exception si ocurre un error durante el mapeo
-     */
     @Override
     public void process(Exchange exchange) throws Exception {
         log.info("Iniciando mapeo de respuesta backend a formato MICM");
@@ -45,23 +40,17 @@ public class BackendResponseMappingProcessor implements Processor {
         log.info("Mapeo de respuesta completado exitosamente");
     }
 
-    /**
-     * Determina cuál respuesta mapear según la prioridad de servicios ejecutados.
-     */
     private GetClientGeneralDataResponse determineAndMapResponse(Exchange exchange) throws Exception {
-        // Prioridad 1: Respuesta JCE (más actualizada)
         if (hasJceResponse(exchange)) {
             String jceResponse = exchange.getProperty("jceResponse", String.class);
             return mapJceResponse(jceResponse);
         }
         
-        // Prioridad 2: Respuesta Maestro (si no hubo error 904)
         if (hasMasterDataResponse(exchange)) {
             String masterResponse = exchange.getProperty("masterDataResponse", String.class);
             return mapMasterDataResponse(masterResponse);
         }
         
-        // Prioridad 3: Respuesta Cliente Jurídico
         if (hasLegalClientResponse(exchange)) {
             String legalResponse = exchange.getProperty("legalClientResponse", String.class);
             return mapLegalClientResponse(legalResponse);
@@ -70,34 +59,22 @@ public class BackendResponseMappingProcessor implements Processor {
         throw new IllegalStateException("No se encontró respuesta válida de ningún servicio backend");
     }
 
-    /**
-     * Verifica si existe respuesta JCE válida.
-     */
     private boolean hasJceResponse(Exchange exchange) {
         return Boolean.TRUE.equals(exchange.getProperty("callJceService")) && 
                exchange.getProperty("jceResponse") != null;
     }
 
-    /**
-     * Verifica si existe respuesta de datos maestros válida.
-     */
     private boolean hasMasterDataResponse(Exchange exchange) {
         return Boolean.TRUE.equals(exchange.getProperty("callMasterDataService")) && 
                exchange.getProperty("masterDataResponse") != null &&
                !Boolean.TRUE.equals(exchange.getProperty("clientNotFoundInMaster"));
     }
 
-    /**
-     * Verifica si existe respuesta de cliente jurídico válida.
-     */
     private boolean hasLegalClientResponse(Exchange exchange) {
         return Boolean.TRUE.equals(exchange.getProperty("callLegalClientService")) && 
                exchange.getProperty("legalClientResponse") != null;
     }
 
-    /**
-     * Mapea la respuesta del servicio de cliente jurídico.
-     */
     private GetClientGeneralDataResponse mapLegalClientResponse(String jsonResponse) throws Exception {
         log.info("Mapeando respuesta de servicio de cliente jurídico");
         
@@ -107,21 +84,18 @@ public class BackendResponseMappingProcessor implements Processor {
         JsonNode identification = client.path("identification");
 
         Identification identificacion = new Identification(
-            identification.path("number").textValue(),
-            identification.path("type").textValue()
+            getTextValueSafe(identification, "number"),
+            getTextValueSafe(identification, "type")
         );
 
         return new GetClientGeneralDataResponse(
             identificacion,
-            client.path("businessName").textValue(),
-            "", "", "0001-01-01T00:00:00",
-            "", "", "", "", "", "", "", "", "0001-01-01T00:00:00", "", ""
+            getTextValueSafe(client, "businessName"),
+            "", "", DEFAULT_DATE,
+            "", "", "", "", "", "", "", "", DEFAULT_DATE, "", ""
         );
     }
 
-    /**
-     * Mapea la respuesta del servicio de datos maestros.
-     */
     private GetClientGeneralDataResponse mapMasterDataResponse(String jsonResponse) throws Exception {
         log.info("Mapeando respuesta de servicio de datos maestros");
         
@@ -131,36 +105,33 @@ public class BackendResponseMappingProcessor implements Processor {
         JsonNode identification = client.path("identifications").get(0);
 
         Identification identificacion = new Identification(
-            identification.path("number").textValue(),
-            identification.path("type").textValue()
+            getTextValueSafe(identification, "number"),
+            getTextValueSafe(identification, "type")
         );
 
-        String birthDate = client.path("dateOfBirth").textValue();
-        String cancellationDate = client.path("cancellationDate").textValue();
+        String birthDate = getTextValueSafe(client, "dateOfBirth");
+        String cancellationDate = getTextValueSafe(client, "cancellationDate");
 
         return new GetClientGeneralDataResponse(
             identificacion,
-            client.path("names").textValue(),
-            client.path("firstName").textValue(),
-            client.path("middleLastName").textValue(),
-            birthDate.isEmpty() ? "0001-01-01T00:00:00" : birthDate,
-            client.path("placeOfBirth").textValue(),
+            getTextValueSafe(client, "names"),
+            getTextValueSafe(client, "firstName"),
+            getTextValueSafe(client, "middleLastName"),
+            isValidDate(birthDate) ? birthDate : DEFAULT_DATE,
+            getTextValueSafe(client, "placeOfBirth"),
             "",
-            client.path("sex").textValue(),
-            client.path("maritalStatus").textValue(),
-            client.path("category").textValue(),
-            client.path("cancellationCause").textValue(),
-            client.path("cancellationCauseID").textValue(),
-            client.path("stateID").textValue(),
-            cancellationDate.isEmpty() ? "0001-01-01T00:00:00" : cancellationDate,
+            getTextValueSafe(client, "sex"),
+            getTextValueSafe(client, "maritalStatus"),
+            getTextValueSafe(client, "category"),
+            getTextValueSafe(client, "cancellationCause"),
+            getTextValueSafe(client, "cancellationCauseID"),
+            getTextValueSafe(client, "stateID"),
+            isValidDate(cancellationDate) ? cancellationDate : DEFAULT_DATE,
             "",
-            client.path("photo").textValue()
+            getTextValueSafe(client, "photo")
         );
     }
 
-    /**
-     * Mapea la respuesta del servicio JCE.
-     */
     private GetClientGeneralDataResponse mapJceResponse(String jsonResponse) throws Exception {
         log.info("Mapeando respuesta de servicio JCE");
         
@@ -170,33 +141,47 @@ public class BackendResponseMappingProcessor implements Processor {
         JsonNode identification = client.path("identifications").get(0);
 
         Identification identificacion = new Identification(
-            identification.path("number").textValue(),
-            identification.path("type").textValue()
+            getTextValueSafe(identification, "number"),
+            getTextValueSafe(identification, "type")
         );
 
-        String birthDate = client.path("birthDate").textValue();
-        String cancelDate = client.path("cancelDate").textValue();
-
-        birthDate = (birthDate == null || birthDate.isEmpty()) ? "0001-01-01T00:00:00" : birthDate;
-        cancelDate = (cancelDate == null || cancelDate.isEmpty()) ? "0001-01-01T00:00:00" : cancelDate;
+        String birthDate = getTextValueSafe(client, "birthDate");
+        String cancelDate = getTextValueSafe(client, "cancelDate");
 
         return new GetClientGeneralDataResponse(
             identificacion,
-            client.path("names").textValue(),
-            client.path("firstSurname").textValue(),
-            client.path("secondSurname").textValue(),
-            birthDate.isEmpty() ? "0001-01-01T00:00:00" : birthDate,
-            client.path("birthPlace").textValue(),
+            getTextValueSafe(client, "names"),
+            getTextValueSafe(client, "firstSurname"),
+            getTextValueSafe(client, "secondSurname"),
+            isValidDate(birthDate) ? birthDate : DEFAULT_DATE,
+            getTextValueSafe(client, "birthPlace"),
             "",
-            client.path("gender").textValue(),
-            client.path("maritalStatus").textValue(),
-            client.path("category").textValue(),
-            client.path("cancelReason").textValue(),
-            client.path("cancelReasonId").textValue(),
-            client.path("stateId").textValue(),
-            cancelDate.isEmpty() ? "0001-01-01T00:00:00" : cancelDate,
+            getTextValueSafe(client, "gender"),
+            getTextValueSafe(client, "maritalStatus"),
+            getTextValueSafe(client, "category"),
+            getTextValueSafe(client, "cancelReason"),
+            getTextValueSafe(client, "cancelReasonId"),
+            getTextValueSafe(client, "stateId"),
+            isValidDate(cancelDate) ? cancelDate : DEFAULT_DATE,
             "",
-            client.path("photoBinary").textValue()
+            getTextValueSafe(client, "photoBinary")
         );
+    }
+
+    private String getTextValueSafe(JsonNode node, String fieldName) {
+        if (node == null || !node.has(fieldName)) {
+            return "";
+        }
+        JsonNode fieldNode = node.get(fieldName);
+        if (fieldNode == null || fieldNode.isNull()) {
+            return "";
+        }
+        String value = fieldNode.asText();
+        return value != null ? value : "";
+    }
+
+    private boolean isValidDate(String dateString) {
+        return dateString != null && !dateString.trim().isEmpty() && 
+               !dateString.equals("0001-01-01") && !dateString.equals("0001-01-01T00:00:00");
     }
 }
